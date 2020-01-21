@@ -1,204 +1,113 @@
 #include<stdio.h>
-#include<pcap.h>
-#include<stdlib.h>
-#include<string.h>
-#include<arpa/inet.h>
-#include<sys/socket.h>
-#include<netinet/in_systm.h>
-#include<net/ethernet.h>
-#include<netinet/udp.h>
-#include<netinet/tcp.h>
-#include<netinet/ip.h>
-#include<netinet/ip_icmp.h>
-#define IPV4 0x0800
-#define ARP  0x0806
-#define Wake_On_Lane 0x0842
+#include <arpa/inet.h>
 
-
-struct Global_header {
-    unsigned int magic_number;
-    unsigned short int version_major;
-    unsigned short int version_minor;
-    unsigned int thiszone;
+struct GlobalHeader
+{
+    unsigned int magicNumber;
+    unsigned short int versionMajor;
+    unsigned short int versionMinor;
+    int time;
     unsigned int sigfigs;
     unsigned int snaplen;
     unsigned int network;
-} ;
+};
 
+struct PacketHeader
+{
+    unsigned int tSec;  /* timestamp seconds */
+    unsigned int tuSec; /* timestamp microseconds */
+    unsigned int ocLen; /* number of octets of packet saved in file */
+    unsigned int packLen;  //actual length of packet
+};
 
-struct EthHeader{
+struct EthernetHeader
+{
+    unsigned char destination[6];
+    unsigned char source[6];
+    unsigned short int ethType;
+};
 
-    unsigned char source_addr[6];
-    unsigned char dest_addr[6];
-    unsigned short type;
-
+struct IP
+{
+    unsigned char source[4];
+    unsigned char destination[4];
 };
 
 
-struct IPHeader{
-    unsigned char verIHL;
-    unsigned char TOS;
-    unsigned short int length;
-    unsigned short int identification;
-    //unsigned char flag;
-    unsigned short offset;
-    unsigned char ttl;
-    unsigned char protocol;
-    unsigned short checksum;
-    struct in_addr source;
-    struct in_addr dest;
-
-};
-
-struct TCP{
-    unsigned short int SportAddr,DportAddr;
-    unsigned int seqNum;
-    unsigned int AckNum;
 
 
-};
+int main()
+{
+    struct GlobalHeader ghead;
+    struct PacketHeader phead;
+    struct EthernetHeader ehead;
+    struct IP ip;
+    
+    unsigned char c, protocol;
+    unsigned short g;
+    
+    FILE *pf= fopen("iit2.pcap","rb");
 
-struct header_start{
-        unsigned int time_sec;
-        unsigned int time_milisec;
-        unsigned int length;
-        unsigned int orig_len;
-};
+    fread(&ghead, sizeof(struct GlobalHeader), 1, pf);
 
+    printf("Magic number: %x\n",ghead.magicNumber);
+    printf("Version: %x.%x\n",ghead.versionMajor, ghead.versionMinor);
+    printf("Time: %x\n",ghead.time);
+    printf("Sigfig: %x\n",ghead.sigfigs);
+    printf("snaplen: %x\n",ghead.snaplen);
+    printf("network: %x\n",ghead.network);
 
-int main(){
+    fread(&phead, sizeof(struct PacketHeader), 1, pf);
 
-    FILE *fp = fopen("iit2.pcap","r");
-    struct Global_header G;
-    struct header_start  H;
-    struct EthHeader     E;
-    struct IPHeader      I;
-    struct TCP           T;
+    printf("length of packet: %d\n",phead.packLen);
 
-    if(fp==NULL)
+    fread(&ehead, sizeof(struct EthernetHeader), 1, pf);
+    ehead.ethType= ntohs(ehead.ethType);
+
+    printf("Destination Address:");
+    for(int i=0; i<6; i++)
     {
-        printf("ERROR OPENING FILE\n");
-
+        printf("%02x",ehead.destination[i]);
+        if(i!=5)printf(":");
+        else printf("\n");
     }
-
-    //fread(&G,sizeof(struct Global_header),1,fp);
-    fread(&G.magic_number,sizeof(unsigned int), 1, fp);
-    fread(&G.version_major,sizeof(unsigned short int),1, fp);
-    fread(&G.version_minor,sizeof(unsigned short int),1, fp);
-    fread(&G.thiszone, sizeof(unsigned int), 1, fp);
-    fread(&G.sigfigs, sizeof(unsigned int), 1, fp);
-    fread(&G.snaplen, sizeof(unsigned int), 1, fp);
-    fread(&G.network, sizeof(unsigned int), 1, fp);
-
-    printf("Magic Number is %x\nVersion Major is %x\nVersion Minor is %x\nZone is %x\nSigfigs is %x\nSnaplen is %x\nNetwork is %x\n\n ",G.magic_number,G.version_major,G.version_minor,G.thiszone,G.sigfigs,G.snaplen,G.network);
-
-    fread(&H,sizeof(struct header_start),1,fp);
-    printf("Time in sec %x\n Length of the packet is %d\n\n", H.time_sec,H.length);
-
-
-    fread(&E.source_addr,sizeof(unsigned char)*6,1,fp);
-
-    printf("SOURCE ADDRESS ");
-    for (int i = 0; i < 6; ++i) {
-        printf("%02x", E.source_addr[i]);
-
-        if(i<5)
-        printf(":");
-
+    printf("Source Address:");
+    for(int i=0; i<6; i++)
+    {
+        printf("%02x",ehead.source[i]);
+        if(i!=5)printf(":");
+        else printf("\n");
     }
-    printf("\n");
+    printf("Ethernet type: %x\n",ehead.ethType);
 
+    fread(&c, sizeof(char), 1, pf); //taking IP Version Number;
+    c=c>>4;
+    printf("IP Version Number: %d\n",(int)c);
 
-    fread(&E.dest_addr,sizeof(unsigned char)*6,1,fp);
+    for(int i=0;i<8;i++)
+        fread(&c, sizeof(char), 1, pf);
+    fread(&protocol, sizeof(char), 1, pf); //taking protocol
+    fread(&g, sizeof(unsigned short), 1, pf);
+    fread(&ip.source, sizeof(unsigned char)*4, 1, pf);
+    fread(&ip.destination, sizeof(unsigned char)*4, 1, pf);
 
-    printf("DESTINATION ADDRESS ");
-    for (int i = 0; i < 6; ++i) {
-        printf("%02x", E.source_addr[i]);
-        if(i<5)
-        printf(":");
-
+    if(protocol==6) printf("this is TCP\n");
+    else printf("this is not TCP\n");
+    printf("source IP:");
+    for(int i=0; i<4; i++)
+    {
+        printf("%d",(int)ip.source[i]);
+        if(i!=3) printf(".");
+        else printf("\n");
     }
-    printf("\n");
-
-
-    fread(&E.type,sizeof(unsigned short),1,fp);
-
-    E.type=ntohs(E.type);
-
-    printf("ETHERNET TYPE IS %x\n", E.type);
-
-    if(E.type==IPV4)
-    printf("The ETHERNET TYPE IS IPV4\n");
-
-    fread(&I.verIHL,sizeof(unsigned char),1,fp);
-    unsigned short int version1,Length;
-
-
-     char version=I.verIHL>>4;
-    
-     version1=(int)version;
-
-    char headerLength=I.verIHL & 0x0f;
-    Length=(int)headerLength;
-    
-
-    printf("HEADER LENGTH IS %d\n",headerLength);
-
-    fread(&I.TOS,sizeof(unsigned char),1,fp);
-    fread(&I.length,sizeof(unsigned short),1,fp);
-    fread(&I.identification,sizeof(unsigned short),1,fp);
-    //fread(&I.flag,sizeof(unsigned char),1,fp);
-    fread(&I.offset,sizeof(unsigned short),1,fp);
-    fread(&I.ttl,sizeof(unsigned char),1,fp);
-    fread(&I.protocol,sizeof(unsigned char),1,fp);
-    fread(&I.checksum,sizeof(unsigned short),1,fp);
-    fread(&I.source,sizeof(struct in_addr),1,fp);
-    fread(&I.dest,sizeof(unsigned  char)*4,1,fp);
-    unsigned short protocol=(int)I.protocol;
-
-    if(protocol==6)
-    printf("THIS IS A TCP PROTOCOL\n");
-
-    // for (int i = 0; i < 4; ++i) {
-    //     printf("%d", I.source[i]);
-
-    //     if(i<3)
-    //     printf(":");
-
-    // }
-    // printf("\n");
-
-    printf("IP Address is : %s", inet_ntoa(I.source));
-
-
-    if(protocol==6){
-
-        fread(&T.SportAddr,sizeof(unsigned short),1,fp);
-        printf("%d\n",T.SportAddr);
-
-        fread(&T.DportAddr,sizeof(unsigned short),1,fp);
-        printf("%d\n",T.DportAddr);
-
+    printf("destination IP:");
+    for(int i=0; i<4; i++)
+    {
+        printf("%d",(int)ip.destination[i]);
+        if(i!=3) printf(".");
+        else printf("\n");
     }
-
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-    
-
-
 }
-
 
 
 
