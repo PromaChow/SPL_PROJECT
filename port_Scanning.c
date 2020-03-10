@@ -219,4 +219,4 @@ int main()
 		i++;
 	}
 
-	if(flag) printf("This is port\n");
+	if(flag) printf("This port is open\n");
