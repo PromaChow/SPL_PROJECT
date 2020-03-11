@@ -7,6 +7,7 @@
 #include<netinet/ip.h>
 #include<linux/if_ether.h>
 #include<arpa/inet.h>
+#include<netdb.h>
 
 #define TCP tcphdr
 
@@ -24,7 +25,7 @@ struct pseudo_header
 struct sockaddr_c       //sockaddr_in
 {
     short           s_family;   //sin_family
-    unsigned int    s_port;      //sin_port
+    unsigned int    s_port;     //sin_port
     unsigned long   s_addr;     //struct in_addr
     char            s_zero[8];  //sin_zero
 };
@@ -58,16 +59,15 @@ unsigned short csum(unsigned short *ptr,int size)
 
 int equal(char addr[], char arg[])
 {	
-	int i = 0, flag = 0;
-    while(addr[i] != '\0' && arg[i] != '\0')
+	int flag = 0, i;
+	for(i=0; ; i++)
     {
-        
+        if(addr[i]=='\0' || arg[i]=='\0') break;
         if(addr[i] != arg[i]) 
         {
             flag = 1;
             break;
         }
-        i++;
     }
     if(flag == 0 && addr[i] == '\0' && arg[i] == '\0')
         return 1;
@@ -123,18 +123,18 @@ int main()
 	iph->daddr = sin.s_addr;
     iph->check = csum ((unsigned short *) datagram, iph->tot_len);
 
-	tcph->source = htons (15111);
+	tcph->source = htons (977);
 	tcph->dest = htons (port);
-	tcph->seq = 110;
-	tcph->ack_seq = 110;
-	tcph->doff = 5;
+	tcph->seq = htonl(1105024978);
+	tcph->ack_seq = 0;
+	tcph->doff = sizeof(struct TCP) / 4;
 	tcph->fin=0;
 	tcph->syn=1;
 	tcph->rst=0;
 	tcph->psh=0;
 	tcph->ack=0;
 	tcph->urg=0;
-	tcph->window = htons(5840);	
+	tcph->window = htons(14600);	
 	tcph->check = 0;	
 	tcph->urg_ptr = 0;
 
@@ -220,3 +220,4 @@ int main()
 	}
 
 	if(flag) printf("This port is open\n");
+}
