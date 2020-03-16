@@ -9,6 +9,8 @@
 #include<arpa/inet.h>
 #include<netdb.h>
 
+#include "packetanalysis.h"
+
 #define TCP tcphdr
 
 struct pseudo_header
@@ -31,31 +33,31 @@ struct sockaddr_c       //sockaddr_in
 };
 
 
-unsigned short csum(unsigned short *ptr,int size) 
-{
-	unsigned long int sum;
-	unsigned short oddbyte;
-	unsigned short int answer;
+// unsigned short csum(unsigned short *ptr,int size) 
+// {
+// 	unsigned long int sum;
+// 	unsigned short oddbyte;
+// 	unsigned short int answer;
 
-	sum=0;
-	while(size>1)
-    {
-		sum+=*ptr++;
-		size-=2;
-	}
-	if(size==1)
-    {
-		oddbyte=0;
-		*((unsigned char*) & oddbyte)=*(unsigned char*)ptr;
-		sum+=oddbyte;
-	}
+// 	sum=0;
+// 	while(size>1)
+//     {
+// 		sum+=*ptr++;
+// 		size-=2;
+// 	}
+// 	if(size==1)
+//     {
+// 		oddbyte=0;
+// 		*((unsigned char*) & oddbyte)=*(unsigned char*)ptr;
+// 		sum+=oddbyte;
+// 	}
 
-	sum = (sum>>16)+(sum & 0x0000ffff);
-	sum = sum + (sum>>16);
-	answer=(short)~sum;
+// 	sum = (sum>>16)+(sum & 0x0000ffff);
+// 	sum = sum + (sum>>16);
+// 	answer=(short)~sum;
 	
-	return answer;
-}
+// 	return answer;
+// }
 
 int equal(char addr[], char arg[])
 {	
