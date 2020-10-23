@@ -345,14 +345,21 @@ int main()
 
     }
 
-    fprintf(ff,"TCP : %lld\nUDP : %lld\nICMP : %lld\n",tcp,udp,icmp);
+    fprintf(ff,"TCP : %lld\nUDP : %lld\nICMP : %lld\n\n",tcp,udp,icmp);
+
+    fprintf(ff,"No.of IP addresses which probably has been flooded with SYN packets : %lld\n\n",spoof_bound+1);
+    if(spoof_bound>=0){
+
+        fprintf(ff,"IP ADDRESSES :");
+    }
 
     for(int i=0;i<=spoof_bound;i++){
         for(int j=0;j<4;j++){
-            printf("%d ",track[i].IP[j]);
-
+            if(j!=3)fprintf(ff,"%d.",track[i].IP[j]);
+            else fprintf(ff,"%d",track[i].IP[j]);
         }
-        printf("\n");
+         fprintf(ff,"(Number of received SYN packets is %ld && Number of sent SYN_ACKs is %ld)\n",track[i].syn,track[i].syn_ack);
+        
     }
 
 
