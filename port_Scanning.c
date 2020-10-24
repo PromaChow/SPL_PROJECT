@@ -97,11 +97,13 @@ int main(int argc, char*argv[])
 		exit(1);
 	}
 	
+	
 
 
     char datagram[4096] , source_ip[16] , *data , *pseudogram, desta[16];
 	memset(datagram, 0, 4096);
     short int port_max,port_min;
+	char host_name[100],ipAddress[16];
 
     struct iphdr *iph = (struct iphdr *) datagram;
 	struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct iphdr));
@@ -114,7 +116,34 @@ int main(int argc, char*argv[])
 
 	strcpy(source_ip , "192.168.31.136");
 
+	
+
 	char parse[3];
+	long long open_ports=0,closed_ports=0;
+
+
+	if(argc <2){
+		printf("Very Few Arguments\n");
+		return 0;
+	}
+
+	if(argc == 2){
+		if(is_Host(argv[1])){
+		convertHosttoIp(argv[1],desta,&destAddr);
+		port_min=0;
+		port_max=49151;
+		
+		strcpy(host_name,argv[1]);
+		//gprintf("%s\n",desta);
+	}
+	else{
+		strcpy(desta,argv[1]);
+		IPtoHostName(desta,host_name);
+	}
+
+	}
+
+	if(argc>2){
 	strcpy(parse,argv[1]);
 
 	if(!port_Correct_Format(argv[1])){
@@ -143,13 +172,16 @@ int main(int argc, char*argv[])
     
 	if(is_Host(argv[2])){
 		convertHosttoIp(argv[2],desta,&destAddr);
+		strcpy(host_name,argv[2]);
 
-		//printf("%s\n",desta);
+		//gprintf("%s\n",desta);
 	}
 	else{
 		strcpy(desta,argv[2]);
+		IPtoHostName(desta,host_name);
 	}
-    
+	}
+    printf("Host Name          IP Address          Port Number          State\n");
 	for(short int port = port_min; port<=port_max; port++){
 	sin.s_family = AF_INET;
 	sin.s_port = htons(port);
@@ -253,17 +285,30 @@ int main(int argc, char*argv[])
 				printf("\tPSH: %d\n",tcp->psh);
 				printf("\tACK: %d\n",tcp->ack);
 				printf("\tURG: %d\n",tcp->urg);
-				if(tcp->rst) printf("This port is closed!\n");
+				if(tcp->rst) {
+
+					printf("%s         %s          %hd          Closed\n",host_name,desta,port);
+					//printf("This port is closed!\n");
+					closed_ports++;
+				}
 				break;
 			}
 
-			if(tcp->rst) printf("This port is closed!\n");
+			if(tcp->rst) {
+				printf("%s        %s          %hd          Closed\n",host_name,desta,port);
+				closed_ports++;
+			}
 
 		}
 
 		i++;
 	}
 
-	if(flag) printf("This port is Filtered\n");
+	if(flag) {
+		open_ports++;
+		printf("%s          %s          %hd          Filtered\n",host_name,desta,port);
 	}
+	}
+
+	printf("\n\n---------Final Statistics--------\nFiltered Ports = %lld, Closed Ports = %lld\n",open_ports,closed_ports);
 }
