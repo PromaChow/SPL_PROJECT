@@ -33,6 +33,14 @@ struct sockaddr_c       //sockaddr_in
 };
 
 
+void swap(short int * a, short int * b){
+	    int temp = *a;
+    	*a = *b;
+    	*b = temp;
+    
+}
+
+
 unsigned short csum(unsigned short *ptr,int size) 
 {
 	unsigned long int sum;
@@ -88,10 +96,12 @@ int main(int argc, char*argv[])
 		perror("Failed to create socket");
 		exit(1);
 	}
+	
+
 
     char datagram[4096] , source_ip[16] , *data , *pseudogram, desta[16];
 	memset(datagram, 0, 4096);
-    short int port;
+    short int port_max,port_min;
 
     struct iphdr *iph = (struct iphdr *) datagram;
 	struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct iphdr));
@@ -104,19 +114,43 @@ int main(int argc, char*argv[])
 
 	strcpy(source_ip , "192.168.31.136");
 
-    port = atoi(argv[2]);
-	printf("%hd\n",port);
-    
-	if(is_Host(argv[1])){
-		convertHosttoIp(argv[1],desta,&destAddr);
+	char parse[3];
+	strcpy(parse,argv[1]);
 
-		printf("%s\n",desta);
+	if(!port_Correct_Format(argv[1])){
+
+	if(parse[1]== 's'){
+		port_max = port_min = atoi(argv[3]);
+	}
+	else if(parse[1] == 'r'){
+
+		port_max = atoi(argv[4]);
+		port_min = atoi(argv[3]);
+
+		if(port_min>port_max){
+			swap(&port_min,&port_max);
+		}
+	}
+	}
+
+	else{
+		printf("E:Undefined format\n");
+		return 0;
+	}
+
+
+    
+    
+	if(is_Host(argv[2])){
+		convertHosttoIp(argv[2],desta,&destAddr);
+
+		//printf("%s\n",desta);
 	}
 	else{
-		strcpy(desta,argv[1]);
+		strcpy(desta,argv[2]);
 	}
     
-
+	for(short int port = port_min; port<=port_max; port++){
 	sin.s_family = AF_INET;
 	sin.s_port = htons(port);
 	sin.s_addr = inet_addr(desta);
@@ -231,4 +265,5 @@ int main(int argc, char*argv[])
 	}
 
 	if(flag) printf("This port is Filtered\n");
+	}
 }
