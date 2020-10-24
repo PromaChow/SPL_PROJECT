@@ -1,3 +1,4 @@
+
 #include<stdio.h>
 #include<string.h> 
 #include<sys/socket.h>	
@@ -8,10 +9,9 @@
 #include<linux/if_ether.h>
 #include<arpa/inet.h>
 #include<netdb.h>
-
-#include "packetanalysis.h"
-
 #define TCP tcphdr
+#include "regx.c"
+#include"HostNameToIp.h"
 
 struct pseudo_header
 {
@@ -33,31 +33,31 @@ struct sockaddr_c       //sockaddr_in
 };
 
 
-// unsigned short csum(unsigned short *ptr,int size) 
-// {
-// 	unsigned long int sum;
-// 	unsigned short oddbyte;
-// 	unsigned short int answer;
+unsigned short csum(unsigned short *ptr,int size) 
+{
+	unsigned long int sum;
+	unsigned short oddbyte;
+	unsigned short int answer;
 
-// 	sum=0;
-// 	while(size>1)
-//     {
-// 		sum+=*ptr++;
-// 		size-=2;
-// 	}
-// 	if(size==1)
-//     {
-// 		oddbyte=0;
-// 		*((unsigned char*) & oddbyte)=*(unsigned char*)ptr;
-// 		sum+=oddbyte;
-// 	}
+	sum=0;
+	while(size>1)
+    {
+		sum+=*ptr++;
+		size-=2;
+	}
+	if(size==1)
+    {
+		oddbyte=0;
+		*((unsigned char*) & oddbyte)=*(unsigned char*)ptr;
+		sum+=oddbyte;
+	}
 
-// 	sum = (sum>>16)+(sum & 0x0000ffff);
-// 	sum = sum + (sum>>16);
-// 	answer=(short)~sum;
+	sum = (sum>>16)+(sum & 0x0000ffff);
+	sum = sum + (sum>>16);
+	answer=(short)~sum;
 	
-// 	return answer;
-// }
+	return answer;
+}
 
 int equal(char addr[], char arg[])
 {	
@@ -80,7 +80,7 @@ int equal(char addr[], char arg[])
 }
 
 
-int main()
+int main(int argc, char*argv[])
 {
     int s = socket (AF_INET, SOCK_RAW, IPPROTO_TCP);
     if(s == -1)
@@ -89,24 +89,33 @@ int main()
 		exit(1);
 	}
 
-    char datagram[4096] , source_ip[32] , *data , *pseudogram, desta[100];
+    char datagram[4096] , source_ip[16] , *data , *pseudogram, desta[16];
 	memset(datagram, 0, 4096);
     short int port;
 
     struct iphdr *iph = (struct iphdr *) datagram;
 	struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct iphdr));
     struct sockaddr_c sin, source, dest;
+	struct sockaddr_in destAddr;
     struct pseudo_header psh;
     
     data = datagram + sizeof(struct iphdr) + sizeof(struct TCP);
 	strcpy(data , "");
 
-    printf("Enter source IP: ");
-    scanf("%s", source_ip);
-    printf("Enter port no. : ");
-    scanf("%hd", &port);
-    printf("Enter Address: ");
-    scanf("%s", desta);
+	strcpy(source_ip , "192.168.31.136");
+
+    port = atoi(argv[2]);
+	printf("%hd\n",port);
+    
+	if(is_Host(argv[1])){
+		convertHosttoIp(argv[1],desta,&destAddr);
+
+		printf("%s\n",desta);
+	}
+	else{
+		strcpy(desta,argv[1]);
+	}
+    
 
 	sin.s_family = AF_INET;
 	sin.s_port = htons(port);
@@ -165,8 +174,8 @@ int main()
     if (sendto (s, datagram, iph->tot_len ,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0)
 		perror("sendto failed");
 
-	else
-		printf ("Packet Sent. Length : %d \n" , iph->tot_len);
+	// else
+	// 	printf ("Packet Sent. Length : %d \n" , iph->tot_len);
 
 	struct sockaddr saddr;
 	int saddr_len = sizeof (saddr);
@@ -221,5 +230,5 @@ int main()
 		i++;
 	}
 
-	if(flag) printf("This port is open\n");
+	if(flag) printf("This port is Filtered\n");
 }
