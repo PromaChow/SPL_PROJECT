@@ -14,5 +14,21 @@ int is_Host(char *str){
      
     int c= regexec(&regex ,str, 0, NULL, 0);
     return c;
+
+    
+    
+}
+
+int port_Correct_Format(char *str){
+     regex_t regex;
+
+ 
+     regcomp(&regex, 
+        "^((-r)|(-s))$", REG_EXTENDED);
+     
+    int c= regexec(&regex ,str, 0, NULL, 0);
+    return c;
+
+    
     
 }
