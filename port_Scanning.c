@@ -10,7 +10,7 @@
 #include<arpa/inet.h>
 #include<netdb.h>
 #define TCP tcphdr
-#include "regx.c"
+#include"regx.c"
 #include"HostNameToIp.h"
 
 struct pseudo_header
@@ -88,7 +88,7 @@ int equal(char addr[], char arg[])
 }
 
 
-int main(int argc, char*argv[])
+int port_scan(char argv[],char ch,int p1,int p2)
 {
     int s = socket (AF_INET, SOCK_RAW, IPPROTO_TCP);
     if(s == -1)
@@ -118,69 +118,40 @@ int main(int argc, char*argv[])
 
 	
 
-	char parse[3];
 	long long open_ports=0,closed_ports=0;
 
+	
+		if(is_Host(argv))
+		{
+			convertHosttoIp(argv,desta,&destAddr);
+			strcpy(host_name,argv);
+		}
 
-	if(argc <2){
-		printf("Very Few Arguments\n");
-		return 0;
-	}
+		else{
+		strcpy(desta,argv);
+		IPtoHostName(desta,host_name);
+		}
 
-	if(argc == 2){
-		if(is_Host(argv[1])){
-		convertHosttoIp(argv[1],desta,&destAddr);
+		if(ch=='0'){
 		port_min=0;
 		port_max=49151;
-		
-		strcpy(host_name,argv[1]);
-		//gprintf("%s\n",desta);
-	}
-	else{
-		strcpy(desta,argv[1]);
-		IPtoHostName(desta,host_name);
-	}
+		}
 
-	}
-
-	if(argc>2){
-	strcpy(parse,argv[1]);
-
-	if(!port_Correct_Format(argv[1])){
-
-	if(parse[1]== 's'){
-		port_max = port_min = atoi(argv[3]);
-	}
-	else if(parse[1] == 'r'){
-
-		port_max = atoi(argv[4]);
-		port_min = atoi(argv[3]);
+		else if(ch == 'r'){
+		port_max = p1;
+		port_min = p2;
 
 		if(port_min>port_max){
 			swap(&port_min,&port_max);
 		}
-	}
-	}
+		}
 
-	else{
-		printf("E:Undefined format\n");
-		return 0;
-	}
-
-
-    
-    
-	if(is_Host(argv[2])){
-		convertHosttoIp(argv[2],desta,&destAddr);
-		strcpy(host_name,argv[2]);
-
+		else if(ch == 's'){
+			port_max = port_min = p1;
+		}
+		
 		//gprintf("%s\n",desta);
-	}
-	else{
-		strcpy(desta,argv[2]);
-		IPtoHostName(desta,host_name);
-	}
-	}
+    
     printf("Host Name          IP Address          Port Number          State\n");
 	for(short int port = port_min; port<=port_max; port++){
 	sin.s_family = AF_INET;
