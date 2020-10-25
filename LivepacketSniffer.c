@@ -29,32 +29,8 @@ void intHandler(int dummy){
     keepRunning=0;
     printStatistics();
 }
-struct EthernetHeader
-{
-    unsigned char      destination[6];
-    unsigned char      source[6];
-    unsigned short int ethType;
-};
 
 
-struct GlobalHeader
-{
-    unsigned int       magicNumber;
-    unsigned short int versionMajor;
-    unsigned short int versionMinor;
-    int                time;
-    unsigned int       sigfigs;
-    unsigned int       snaplen;
-    unsigned int       network;
-};
-
-struct PacketHeader
-{
-    unsigned int tSec;
-    unsigned int tuSec;
-    unsigned int ocLen;
-    unsigned int packLen;
-};
 
 void printHTTPPayload(unsigned char *pay,int size)
 {
@@ -260,7 +236,7 @@ void processPackets(unsigned char *buffer,int length)
 
 
 
-int main(){
+int Livepktcap(){
 int sockfd=socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
     struct sockaddr saddr;
     int addrlen, data;
