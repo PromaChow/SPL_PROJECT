@@ -12,13 +12,15 @@
 #include <time.h> 
 #include <fcntl.h> 
 #include <signal.h>
+#include"regx.h"
 #include"HostNameToIp.h"
+
 long long run=99999999;
 
 int c,pack_rcv;
 struct  timespec start,start1,end,end1;
 
-unsigned short csum(unsigned short *ptr,int size) 
+unsigned short chsum(unsigned short *ptr,int size) 
 {
 	unsigned long int sum;
 	unsigned short oddbyte;
@@ -65,7 +67,10 @@ void set_run(long long u){
     run=u;
 }
 
-int main(int argc,char * argv[]){
+int sendPing(int u,char argv[]){
+
+    if(u!=-1)
+    set_run(u);
 
     int s = socket (AF_INET, SOCK_RAW, IPPROTO_TCP);
     if(s == -1)
@@ -74,7 +79,7 @@ int main(int argc,char * argv[]){
 		exit(1);
 	}
     double time,packetLoss;
-    char datagram[64] , source_ip[16] , desta[16];
+    char datagram[64] , source_ip[16] , desta[16],host_name[100];
 	memset(datagram, 0, 64);
 
     int     TTL_def=51;
@@ -87,21 +92,39 @@ int main(int argc,char * argv[]){
         return 0;
     }   
     struct sockaddr_in destAddr;
-    convertHosttoIp(argv[1],desta,&destAddr);
+
+    if(is_Host(argv))
+		{
+			convertHosttoIp(argv,desta,&destAddr);
+			strcpy(host_name,argv);
+		}
+    
+        else{
+		strcpy(desta,argv);
+		IPtoHostName(desta,host_name);
+
+        destAddr.sin_family=AF_INET;
+        destAddr.sin_port=htons(0);
+        destAddr.sin_addr.s_addr=inet_addr(desta);
+
+		}
+    
 
     clock_gettime(CLOCK_MONOTONIC,&start);
-    run=5;
+    
 
     signal(SIGINT,stop_run);
     c=0,pack_rcv=0;
+    //printf("%d\n",u);
+    
     while(run--){
     struct icmphdr *icmph = (struct icmphdr *) (datagram );
 
 
-    printf("%s\n",desta);
+    //printf("%s\n",desta);
     icmph->type=ICMP_ECHO;
     icmph->code=0;
-    icmph->checksum=csum((unsigned short*)datagram,sizeof(datagram));
+    icmph->checksum=chsum((unsigned short*)datagram,sizeof(datagram));
     icmph->un.echo.id = getpid();
     icmph->un.echo.sequence=c++;
 
@@ -138,7 +161,7 @@ int main(int argc,char * argv[]){
         else{
             clock_gettime(CLOCK_MONOTONIC,&end1);
             time = ((end1.tv_nsec-start1.tv_nsec)/1000000)+((end1.tv_sec-start1.tv_sec)*1000);
-            printf("64 bytes sent from %s icmp_seq=%d ttl=51 time=%f ms\n",desta,c,time);
+            printf("64 bytes sent from %s(%s) icmp_seq=%d ttl=51 time=%f ms\n",desta,host_name,c,time);
             pack_rcv++;
         }
         
