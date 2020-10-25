@@ -4,6 +4,8 @@
 #define MAX 100000
 
 
+
+
 struct GlobalHeader
 {
     unsigned int       magicNumber;
@@ -138,7 +140,7 @@ void change(int IPAddr[],int flag){
 }
 
 
-int main()
+int pcap_Analysis(char fileName[100])
 {
     struct GlobalHeader ghead;
     struct PacketHeader phead;
@@ -152,7 +154,7 @@ int main()
     unsigned short g;
     char flg[6];
 
-    FILE *pf= fopen("SYNFlood.pcap","rb");
+    FILE *pf= fopen(fileName,"rb");
     FILE *fp =fopen("packetLog.txt","w+");
     FILE *ff =fopen("Stas.txt","w+");
 
@@ -243,6 +245,14 @@ int main()
             fprintf(fp,"SOURCE PORT: %d\n",ntohs(T.srcport));
             fprintf(fp,"DESTINATION PORT : %d\n",ntohs(T.destport));
 
+            if(ntohs(T.srcport==443 )|| ntohs(T.destport)==443){
+                fprintf(fp,"This is a SSL packet\n");
+            }
+
+            else if(ntohs(T.srcport==80) || ntohs(T.destport)==80){
+                fprintf(fp,"This is a HTTP packet\n");
+            }
+
             int j= 0;
             //T.tcp_flag=T.tcp_flag>>2;
             for(int i=32; i>=1; i=i>>1)
@@ -316,7 +326,10 @@ int main()
         else
         {
             if(protocol==0)fprintf(fp,"This is HOPOPT protocol");
-            else if(protocol==1)fprintf(fp,"This is ICMP protocol");
+            else if(protocol==1){
+                fprintf(fp,"This is ICMP protocol");
+                icmp++;
+            }
             else if(protocol==2)fprintf(fp,"This is IGMP protocol");
             else if(protocol==3)fprintf(fp,"This is GGP protocol");
             else if(protocol==4)fprintf(fp,"This is IP-in-IP protocol");
@@ -365,6 +378,8 @@ int main()
 
 
     printf("\n\nDONE!\n");
+
+    return 0;
 
 
 
