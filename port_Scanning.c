@@ -10,8 +10,36 @@
 #include<arpa/inet.h>
 #include<netdb.h>
 #define TCP tcphdr
-#include"regx.c"
+#include"regx.h"
 #include"HostNameToIp.h"
+char state[100];
+
+void service(int port){
+
+    if(port == 25) strcpy(state,"SMTP");
+
+    else if(port == 80) strcpy(state,"HTTP");
+
+    else if(port == 443) strcpy(state,"HTTPs");
+
+    else if(port == 20 || port == 21) strcpy(state,"FTP");
+
+    else if(port == 23) strcpy(state,"TELNET");
+
+    else if(port == 143) strcpy(state,"IMAP");
+
+    else if(port == 3389) strcpy(state,"RDP");
+
+    else if(port == 22) strcpy(state,"SSH");
+
+    else if(port == 53) strcpy(state,"DNS");
+
+    else if(port == 67 || port == 68) strcpy(state,"DHCP");
+
+    else if(port == 110) strcpy(state,"POP3");
+
+
+}
 
 struct pseudo_header
 {
@@ -152,8 +180,12 @@ int port_scan(char argv[],char ch,int p1,int p2)
 		
 		//gprintf("%s\n",desta);
     
-    printf("Host Name          IP Address          Port Number          State\n");
+    printf("Host Name          IP Address          Port Number          State           Service\n");
+
+
 	for(short int port = port_min; port<=port_max; port++){
+	
+	service(port);
 	sin.s_family = AF_INET;
 	sin.s_port = htons(port);
 	sin.s_addr = inet_addr(desta);
@@ -258,7 +290,7 @@ int port_scan(char argv[],char ch,int p1,int p2)
 				printf("\tURG: %d\n",tcp->urg);
 				if(tcp->rst) {
 
-					printf("%s         %s          %hd          Closed\n",host_name,desta,port);
+					printf("%s         %s          %hd          Closed             %s\n",host_name,desta,port,state);
 					//printf("This port is closed!\n");
 					closed_ports++;
 				}
@@ -266,7 +298,7 @@ int port_scan(char argv[],char ch,int p1,int p2)
 			}
 
 			if(tcp->rst) {
-				printf("%s        %s          %hd          Closed\n",host_name,desta,port);
+				printf("%s         %s          %hd          Closed               %s\n",host_name,desta,port,state);
 				closed_ports++;
 			}
 
@@ -277,7 +309,7 @@ int port_scan(char argv[],char ch,int p1,int p2)
 
 	if(flag) {
 		open_ports++;
-		printf("%s          %s          %hd          Filtered\n",host_name,desta,port);
+		printf("%s          %s          %hd          Filtered              %s\n",host_name,desta,port,state);
 	}
 	}
 
