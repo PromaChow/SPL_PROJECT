@@ -1,6 +1,7 @@
 #include<stdio.h>
 #include <arpa/inet.h>
 #include<string.h>
+#include <inttypes.h>
 #define MAX 100000
 
 
@@ -35,6 +36,13 @@ struct EthernetHeader
 struct IP
 {
     unsigned char IHL;
+    unsigned char  tos;
+    unsigned short length;
+    unsigned short id;
+    unsigned short fragment;
+    unsigned char ttl;
+    unsigned char protocol;
+    unsigned short checksum;
     unsigned char source[4];
     unsigned char destination[4];
 };
@@ -155,7 +163,7 @@ int pcap_Analysis(char fileName[100])
     char flg[6];
 
     FILE *pf= fopen(fileName,"rb");
-    FILE *fp =fopen("packetLog.txt","w+");
+    FILE *fp =fopen("log.txt","w+");
     FILE *ff =fopen("Stas.txt","w+");
 
     fread(&ghead, sizeof(struct GlobalHeader), 1, pf);
@@ -173,14 +181,15 @@ int pcap_Analysis(char fileName[100])
     for(int it=0; !feof(pf); it++)
     {
 
-        fprintf(fp,"\n\npack#%d: ",it+1);
+        fprintf(fp,"\n\npack#%d\n\n: ",it+1);
         fread(&phead, sizeof(struct PacketHeader), 1, pf);
 
-        fprintf(fp,"length of packet: %d\n",phead.ocLen);
+        fprintf(fp,"Length of packet: %d\n",phead.ocLen);
 
         fread(&ehead, sizeof(struct EthernetHeader), 1, pf);
         ehead.ethType= ntohs(ehead.ethType);
 
+        fprintf(fp,"--------Ethernet Header-------\n");
         fprintf(fp,"Destination Address:");
         for(int i=0; i<6; i++)
         {
@@ -195,21 +204,24 @@ int pcap_Analysis(char fileName[100])
             if(i!=5)fprintf(fp,":");
             else fprintf(fp,"\n");
         }
-        fprintf(fp,"Ethernet type: %x\n",ehead.ethType);
+        fprintf(fp,"Ethernet type: %x\n\n",ehead.ethType);
 
-        fread(&ip.IHL, sizeof(char), 1, pf); //taking IP Version Number;
+        fprintf(fp,"--------IP Header-------\n");
+        fread(&ip, sizeof(struct IP),1,pf);
         unsigned short p,len;
         p=ip.IHL >>4;
         len=(ip.IHL & 0x0f);
         fprintf(fp,"IP Version Number: %d\n",(int)p);
         fprintf(fp,"IP header length is %d\n",(int)len*4);
+        fprintf(fp,"Type of Service : %d\n",(unsigned int)ip.tos);
+        fprintf(fp,"Total Length : %d\n",ntohs(ip.length));
+        fprintf(fp,"Identification Number : 0x%x\n",(ntohs)(ip.id));
+        fprintf(fp,"Time to live : %d\n",(unsigned int)ip.ttl);
+        fprintf(fp,"Protocol : %d\n",ip.protocol);
+        fprintf(fp,"Checksum : 0x%x\n",(ntohs)(ip.checksum));
 
-        for(int i=0; i<8; i++)
-            fread(&c, sizeof(char), 1, pf);
-        fread(&protocol, sizeof(char), 1, pf); //taking protocol
-        fread(&g, sizeof(unsigned short), 1, pf);
-        fread(&ip.source, sizeof(unsigned char)*4, 1, pf);
-        fread(&ip.destination, sizeof(unsigned char)*4, 1, pf); //54 bytes read from packet
+        protocol = ip.protocol;
+
 
         fprintf(fp,"source IP:");
 
@@ -231,7 +243,7 @@ int pcap_Analysis(char fileName[100])
             fprintf(fp,"%d",(int)ip.destination[i]);
             arr2[lm++]=(int)ip.destination[i];
             if(i!=3) fprintf(fp,".");
-            else fprintf(fp,"\n");
+            else fprintf(fp,"\n\n");
         }
         int i=0;
         len=len*4;
@@ -239,8 +251,9 @@ int pcap_Analysis(char fileName[100])
         char ch;
         if(protocol==6)
         {
+            fprintf(fp,"--------TCP Header-------\n");
             tcp++;
-            fprintf(fp,"this is TCP protocol\n");
+            //fprintf(fp,"this is TCP protocol\n");
             fread(&T,sizeof(struct TCP),1,pf);
             fprintf(fp,"SOURCE PORT: %d\n",ntohs(T.srcport));
             fprintf(fp,"DESTINATION PORT : %d\n",ntohs(T.destport));
@@ -252,6 +265,16 @@ int pcap_Analysis(char fileName[100])
             else if(ntohs(T.srcport==80) || ntohs(T.destport)==80){
                 fprintf(fp,"This is a HTTP packet\n");
             }
+
+            fprintf(fp,"SEQUENCE NUMBER : %" PRIu32, ntohl(T.seqNum));
+            fprintf(fp,"\n");
+
+            fprintf(fp,"ACKNOWLEDGEMENT NUMBER: %" PRIu32, ntohl(T.ackNUm));
+            fprintf(fp,"\n");
+
+            unsigned short hl = (T.tcp_resoff & 0xf0)>>4;
+            fprintf(fp,"Header Length: %d\n", hl*4);
+
 
             int j= 0;
             //T.tcp_flag=T.tcp_flag>>2;
@@ -306,18 +329,23 @@ int pcap_Analysis(char fileName[100])
                 }
 
 
-            //printf("\n%d\n",ntohs(T.tcp_win));
+            
         }
+        fprintf(fp,"Window Size : %d\n",ntohs(T.tcp_win));
+        fprintf(fp,"Checksum : 0x%x\n",ntohs(T.tcp_checksum));
+        fprintf(fp,"Urgent Pointer : %d\n\n",ntohs(T.tcp_urgptr));
+
         }
 
         else if(protocol==17)
         {
             udp++;
-            fprintf(fp,"this is UDP protocol\n");
+            fprintf(fp,"--------UDP Header-------\n");
             fread(&U, sizeof(struct UDP), 1, pf);
             fprintf(fp,"SOURCE PORT: %d\n",ntohs(U.srcport));
             fprintf(fp,"DESTINATION PORT : %d\n",ntohs(U.destport));
-           // printf("UDP length: %d\n ",ntohs(U.len));
+            fprintf(fp,"UDP length: %d\n",ntohs(U.len));
+            fprintf(fp,"Checksum : 0x%x\n",ntohs(U.udp_checksum));
 
             for(int i=0; i<12; i++)
                 c= fgetc(pf);
@@ -355,6 +383,7 @@ int pcap_Analysis(char fileName[100])
 
         for(int bb=0; bb<phead.ocLen-54; bb++)
             c=fgetc(pf);
+            
 
     }
 
