@@ -11,12 +11,14 @@
 #include <fcntl.h> 
 #include <unistd.h> 
 #include<signal.h>
+#include <inttypes.h>
 #define ETHER_LEN 6
 FILE *pf,*part,*fp;
 int c= 0,httpN=0,tcpN=0,udpN=0,sslN=0,icmpN=0;
 // char num= 'A';
 char FileName[1000];
 int keepRunning=1;
+int packetNo=0;
 
 
 void printStatistics(){
@@ -123,7 +125,8 @@ void printPayload(unsigned char *pay, int len){
 
 void processPackets(unsigned char *buffer,int length)
 {
-  
+    packetNo++;
+    fprintf(pf,"PACK# %d\n",packetNo);
     struct iphdr *ip = (struct iphdr*) buffer;
 
     struct sockaddr_in IPsource,IPdest;
@@ -159,7 +162,7 @@ void processPackets(unsigned char *buffer,int length)
     fprintf(pf,"-------TCP HEADER-------\n");
     fprintf(pf,"Source Port : %d\n",ntohs(tcp->source));
     fprintf(pf,"Destination Port : %d\n",ntohs(tcp->dest));
-    fprintf(pf,"Sequence Number : %d\n",ntohl(tcp->th_seq));
+    fprintf(pf,"Sequence NUmber : %" PRIu32, ntohl(tcp->th_seq));
     fprintf(pf,"TCP header Length : %d\n",tcphdrlen);
     fprintf(pf,"TCP flags:\n");
     fprintf(pf,"URG : %d\n",(unsigned int)tcp->urg);
