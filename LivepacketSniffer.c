@@ -12,19 +12,36 @@
 #include <unistd.h> 
 #include<signal.h>
 #include <inttypes.h>
+
+
 #define ETHER_LEN 6
+#define Black 40
+#define Red 41 
+#define Green 42 
+#define Yellow 43
+#define Blue 44
+#define Magenta 45
+#define Cyan 46
+#define White 47
+#define reset "\033[0m"
+#define print(p,c) printf("\033[1m\033[%dm\033[%dm",p,c)
+#define refresh() printf("%s",reset)
+
 FILE *pf,*part,*fp;
 int c= 0,httpN=0,tcpN=0,udpN=0,sslN=0,icmpN=0;
 // char num= 'A';
 char FileName[1000];
 int keepRunning=1;
 int packetNo=0;
+char state[100];
 
 
 void printStatistics(){
-    printf("--------SUMMARY--------\n");
-    printf("Total no. of\n\nTCP packets : %d\nUDP packets : %d\nHTTP packets : %d\nSSL packets : %d\n",tcpN,udpN,httpN,sslN);
+    //printf("%s--------SUMMARY--------\n",KYEL);
+    //printf("Total no. of\n\n%sTCP packets : %d\n%sUDP packets : %d\n%sHTTP packets : %d\n%sSSL packets : %d\n",KRED,tcpN,KBLU,udpN,KMAG,httpN,KCYN,sslN);
 }
+
+ 
 
 void intHandler(int dummy){
     
@@ -126,6 +143,7 @@ void printPayload(unsigned char *pay, int len){
 void processPackets(unsigned char *buffer,int length)
 {
     packetNo++;
+    int color;
     fprintf(pf,"PACK# %d\n",packetNo);
     struct iphdr *ip = (struct iphdr*) buffer;
 
@@ -152,11 +170,12 @@ void processPackets(unsigned char *buffer,int length)
     fprintf(pf,"Identification : %d\n",ntohs(ip->id));
     fprintf(pf,"TTL : %d\n\n",(unsigned int)ip->ttl);
 
-
+    
 
 
     if(protocol==6){
     tcpN++;
+    color = Yellow;
     struct tcphdr *tcp = (struct tcphdr*)(buffer+iphdrlen);
     unsigned int tcphdrlen = (unsigned int) (tcp->doff*4);
     fprintf(pf,"-------TCP HEADER-------\n");
@@ -175,13 +194,19 @@ void processPackets(unsigned char *buffer,int length)
     fprintf(pf,"Checksum : %d\n",ntohs(tcp->check));
     fprintf(pf,"Urgent Pointer : %d\n\n",(unsigned int)tcp->urg_ptr);
 
+    
+    char tm[20] = "TCP";
+    int fl = 0;
+    
+    refresh();
 
     fprintf(pf,"\n-------THE PAYLOAD--------\n");
     unsigned short payload_len= length - (iphdrlen+tcphdrlen);
     if(ntohs(tcp->source)==80 || ntohs(tcp->dest)==80){
+    
     httpN++;
             
-    
+            color = Blue;
             // int header_size =  sizeof(struct ethhdr) + iphdrlen + tcp->doff*4;
             // unsigned char *payload= (unsigned char*)(buffer+/*SIZE_ETHER+*/iphdrlen+tcphdrlen);
 
@@ -189,6 +214,11 @@ void processPackets(unsigned char *buffer,int length)
             printHTTPPayload(buffer+iphdrlen+tcphdrlen, payload_len);
             // printPayload(buffer, length);
             fprintf(pf,"\n\n\n");
+            fl = 1;
+            print(37,color);
+            strcpy(tm,"HTTP");
+            printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
+            fl = 1;
     }
 
 
@@ -200,13 +230,26 @@ void processPackets(unsigned char *buffer,int length)
     }
     
     if(ntohs(tcp->source)==443|| ntohs(tcp->dest)==443){
+
+    color = Cyan;
     sslN++;
+    strcpy(tm,"SSL");
+    print(30,color);
+    printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
+    refresh();
+    fl = 1;
     }
+
+    if(fl==0)
+    printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
+
 
     }
 
 
     if(protocol==17){
+        
+        color = Magenta;
         struct udphdr *udp = (struct udphdr*)(buffer+iphdrlen);
 
         unsigned short payload_len= length - (iphdrlen+ntohs(udp->len));
@@ -220,21 +263,17 @@ void processPackets(unsigned char *buffer,int length)
 
         printPayload(buffer+iphdrlen+ntohs(udp->len), payload_len);
         fprintf(pf,"\n\n\n");
+        print(37,color);
+        printf("%s %s  UDP  %d  %d \n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),ntohs(udp->source),ntohs(udp->dest));
+        refresh();
+
     }
+    
     if(protocol==1)
     icmpN++;
+    sleep(3);
+   // printf("%sTCP  : %d  %sUDP : %d  %sHTTP  : %d  %sSSL  : %d\r",KRED,tcpN,KBLU,udpN,KMAG,httpN,KCYN,sslN);
 }
-    
-
-
-
-  
-
-
-
-
-
-
 
 
 
@@ -248,10 +287,43 @@ int sockfd=socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
     {
         printf("Failed to create socket\n");
     }
-
+    printf("\033[5m\033[1m\033[3m\033[%dm",Green);
+    printf("Starting....\n\n");
+    refresh();
+    
     pf=fopen("packetLog.txt","w+");
     signal(SIGINT, intHandler);
     unsigned char *buffer = (unsigned char *)malloc(65536);
+        int p = 30;
+        char tm[] = "IP Source Address";
+        printf("\033[1m\033[3m\033[%dm\033[%dm",p,White);
+        printf("%-20s",tm);
+        refresh();
+
+        strcpy(tm,"IP Dest Address");
+        printf("\033[1m\033[3m\033[%dm\033[%dm",p,White);
+        printf("%-20s",tm);
+        refresh();
+
+        strcpy(tm,"Protocol");
+        printf("\033[1m\033[3m\033[%dm\033[%dm",p,White);
+        printf("%-20s",tm);
+        refresh();
+
+        strcpy(tm,"Source Port");
+        printf("\033[1m\033[3m\033[%dm\033[%dm",p,White);
+        printf("%-20s",tm);
+        refresh();
+
+        strcpy(tm,"Dest Port");
+        printf("\033[1m\033[3m\033[%dm\033[%dm",p,White);
+        printf("%-20s",tm);
+        refresh();
+
+        strcpy(tm,"Info");
+        printf("\033[1m\033[3m\033[%dm\033[%dm",p,White);
+        printf("%-20s\n",tm);
+        refresh();
     //int loop=20;
     while(keepRunning){
 
@@ -260,12 +332,16 @@ int sockfd=socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
         data=recvfrom(sockfd, buffer, 65536, 0, &saddr, &addrlen);
         if(data<0)
         {
+           // printf(green());
             printf("Receive failed\n");
             return 1;
         }
 
         //struct GlobalHeader *ghead = (struct GlobalHeader*)(buffer);
-        printf("Running...\r");
+        //system("COLOR 02");
+        //printf("Running...\r");
+        
+
         processPackets(buffer,data);
             // else
             // printf("receiving\n");
