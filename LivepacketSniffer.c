@@ -36,6 +36,15 @@ int packetNo=0;
 char state[100];
 
 
+struct SSL{
+    char rec_type[20];
+    char version[10];
+    int len;
+    int type;
+
+};
+struct SSL tls_info;
+
 void printStatistics(){
     //printf("%s--------SUMMARY--------\n",KYEL);
     //printf("Total no. of\n\n%sTCP packets : %d\n%sUDP packets : %d\n%sHTTP packets : %d\n%sSSL packets : %d\n",KRED,tcpN,KBLU,udpN,KMAG,httpN,KCYN,sslN);
@@ -90,6 +99,7 @@ void printHTTPPayload(unsigned char *pay,int size)
 
 }
 
+
 void printPayload(unsigned char *pay, int len){
     
     for(int i=0;i<len;i++){
@@ -136,6 +146,28 @@ void printPayload(unsigned char *pay, int len){
             fprintf(pf,"\n\n");
         }
     }
+}
+
+
+int getSSLinfo(unsigned char *p,int len){
+    
+    if(len<5) return 0;
+    int record_protocol = (unsigned int)p[0];
+    int ver1 = (unsigned int)p[1], ver2 = (unsigned int)p[2];
+    
+   // int length = atoi(tm);
+    unsigned char tm[2];
+    tm[0]=p[3];
+    tm[1]=p[4];
+    
+    int length;  
+    printf("%d %d %d %02x%02x",record_protocol,ver1,ver2,(unsigned int)tm[0],(unsigned int)tm[1]);
+
+    if(record_protocol == 20){
+        
+    }
+    return 1;
+
 }
 
 
@@ -202,6 +234,8 @@ void processPackets(unsigned char *buffer,int length)
 
     fprintf(pf,"\n-------THE PAYLOAD--------\n");
     unsigned short payload_len= length - (iphdrlen+tcphdrlen);
+    printPayload(buffer+iphdrlen+tcphdrlen, payload_len);
+    fprintf(pf,"\n\n\n");
     if(ntohs(tcp->source)==80 || ntohs(tcp->dest)==80){
     
     httpN++;
@@ -222,15 +256,10 @@ void processPackets(unsigned char *buffer,int length)
     }
 
 
-    else{
+   
+    else if(ntohs(tcp->source)==443|| ntohs(tcp->dest)==443){
 
-        printPayload(buffer+iphdrlen+tcphdrlen, payload_len);
-        fprintf(pf,"\n\n\n");
-
-    }
     
-    if(ntohs(tcp->source)==443|| ntohs(tcp->dest)==443){
-
     color = Cyan;
     sslN++;
     strcpy(tm,"SSL");
@@ -238,12 +267,15 @@ void processPackets(unsigned char *buffer,int length)
     printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
     refresh();
     fl = 1;
+    printf("\n%d\n",getSSLinfo(buffer+iphdrlen+tcphdrlen,payload_len));
     }
-
-    if(fl==0)
+    
+    
+    if(fl==0){
+    print(31,color);
     printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
-
-
+    refresh();
+    }
     }
 
 
