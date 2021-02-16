@@ -51,14 +51,19 @@ struct SSL tls_info;
 
 
 void printStatistics(){
-    //printf("%s--------SUMMARY--------\n",KYEL);
-    //printf("Total no. of\n\n%sTCP packets : %d\n%sUDP packets : %d\n%sHTTP packets : %d\n%sSSL packets : %d\n",KRED,tcpN,KBLU,udpN,KMAG,httpN,KCYN,sslN);
+    
+    printf("Details saved in file packetLog.txt\n");
+    printf("--------SUMMARY--------\n");
+    printf("Total no. of\n\nTCP packets : %d\nUDP packets : %d\nHTTP packets : %d\nSSL packets : %d\n",tcpN,udpN,httpN,sslN);
 }
 
  
 
 void intHandler(int dummy){
-    
+     printf("\033[5m\033[1m\033[3m\033[%dm",Red);
+    printf("Terminating...\n");
+    refresh();
+    sleep(1);
     keepRunning=0;
     printStatistics();
 }
@@ -212,6 +217,7 @@ int getSSLinfo(unsigned char *p,int len){
 
 void processPackets(unsigned char *buffer,int length)
 {
+    sleep(1);
     packetNo++;
     int color;
     fprintf(pf,"PACK# %d\n",packetNo);
@@ -346,7 +352,7 @@ void processPackets(unsigned char *buffer,int length)
     
     if(protocol==1)
     icmpN++;
-    sleep(3);
+   
    // printf("%sTCP  : %d  %sUDP : %d  %sHTTP  : %d  %sSSL  : %d\r",KRED,tcpN,KBLU,udpN,KMAG,httpN,KCYN,sslN);
 }
 
