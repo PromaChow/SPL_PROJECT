@@ -27,6 +27,9 @@
 #define print(p,c) printf("\033[1m\033[%dm\033[%dm",p,c)
 #define refresh() printf("%s",reset)
 
+char handshake_type[21][20]={"HELLO REQUEST","CLIENT HELLO","SERVER HELLO","","","","","","","","","CERTIFICATE","SERVER KEY EXCHANGE","CERTIFICATE REQUEST","SERVER DONE","CERTIFICATE VERIFY","CLIENT KEY EXCHANGE","","","","FINISHED"};
+
+
 FILE *pf,*part,*fp;
 int c= 0,httpN=0,tcpN=0,udpN=0,sslN=0,icmpN=0;
 // char num= 'A';
@@ -37,13 +40,14 @@ char state[100];
 
 
 struct SSL{
-    char rec_type[20];
-    char version[10];
-    int len;
-    int type;
-
+    char rec_type[40];
+    char version[20];
+    char length[3];
+    
 };
 struct SSL tls_info;
+
+
 
 void printStatistics(){
     //printf("%s--------SUMMARY--------\n",KYEL);
@@ -155,17 +159,46 @@ int getSSLinfo(unsigned char *p,int len){
     int record_protocol = (unsigned int)p[0];
     int ver1 = (unsigned int)p[1], ver2 = (unsigned int)p[2];
     
-   // int length = atoi(tm);
-    unsigned char tm[2];
-    tm[0]=p[3];
-    tm[1]=p[4];
-    
-    int length;  
-    printf("%d %d %d %02x%02x",record_protocol,ver1,ver2,(unsigned int)tm[0],(unsigned int)tm[1]);
+  
 
     if(record_protocol == 20){
-        
+        strcpy(tls_info.rec_type,"Content Type : Change Cipher Spec");
     }
+
+    else if(record_protocol == 21){
+       strcpy( tls_info.rec_type,"Content Type : Alert");
+    }
+
+    else if(record_protocol == 22){
+        strcpy(tls_info.rec_type,"Content Type : Handshake");
+    }
+    else if(record_protocol == 23){
+        strcpy(tls_info.rec_type,"Content Type : Application Data");
+    }
+    else{
+        return 0;
+    }
+
+    //version
+    if(ver1 == 3 && ver2 == 0){
+        strcpy(tls_info.version,"Version : SSL 3.0");
+    }
+
+    else if(ver1 == 3 && ver2 == 1){
+        strcpy(tls_info.version,"Version : TLS 1.1");
+    }
+
+    else if(ver1 == 3 && ver2 == 2){
+       strcpy( tls_info.version,"Version : TLS 1.2");
+    }
+
+    else if(ver1 == 3 && ver2 == 3){
+        strcpy(tls_info.version,"Version : TLS 1.3");
+    }
+
+    
+
+    
     return 1;
 
 }
@@ -257,17 +290,18 @@ void processPackets(unsigned char *buffer,int length)
 
 
    
-    else if(ntohs(tcp->source)==443|| ntohs(tcp->dest)==443){
+    else if((ntohs(tcp->source)==443|| ntohs(tcp->dest)==443) && (getSSLinfo(buffer+iphdrlen+tcphdrlen,payload_len))){
 
     
     color = Cyan;
     sslN++;
     strcpy(tm,"SSL");
     print(30,color);
-    printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
+    char temp[] = "Length : ";
+    printf("%-20s%-20s%-20s%-20d%-20d%-20s% -20s %s%x%x\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest),tls_info.rec_type,tls_info.version,temp,(unsigned int)tls_info.length[0],(unsigned int)tls_info.length[1]);
     refresh();
     fl = 1;
-    printf("\n%d\n",getSSLinfo(buffer+iphdrlen+tcphdrlen,payload_len));
+    
     }
     
     
