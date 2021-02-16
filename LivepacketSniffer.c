@@ -44,6 +44,7 @@ struct SSL{
     char version[20];
     char length[3];
     
+    
 };
 struct SSL tls_info;
 
@@ -160,20 +161,21 @@ int getSSLinfo(unsigned char *p,int len){
     int ver1 = (unsigned int)p[1], ver2 = (unsigned int)p[2];
     
   
+    
 
     if(record_protocol == 20){
-        strcpy(tls_info.rec_type,"Content Type : Change Cipher Spec");
+        strcpy(tls_info.rec_type,"Change Cipher Spec");
     }
 
     else if(record_protocol == 21){
-       strcpy( tls_info.rec_type,"Content Type : Alert");
+       strcpy( tls_info.rec_type,"Alert");
     }
 
     else if(record_protocol == 22){
-        strcpy(tls_info.rec_type,"Content Type : Handshake");
+        strcpy(tls_info.rec_type,"Handshake");
     }
     else if(record_protocol == 23){
-        strcpy(tls_info.rec_type,"Content Type : Application Data");
+        strcpy(tls_info.rec_type,"Application Data");
     }
     else{
         return 0;
@@ -181,20 +183,23 @@ int getSSLinfo(unsigned char *p,int len){
 
     //version
     if(ver1 == 3 && ver2 == 0){
-        strcpy(tls_info.version,"Version : SSL 3.0");
+        strcpy(tls_info.version,"SSL 3.0");
     }
 
     else if(ver1 == 3 && ver2 == 1){
-        strcpy(tls_info.version,"Version : TLS 1.1");
+        strcpy(tls_info.version,"TLS 1.1");
     }
 
     else if(ver1 == 3 && ver2 == 2){
-       strcpy( tls_info.version,"Version : TLS 1.2");
+       strcpy( tls_info.version,"TLS 1.2");
     }
 
     else if(ver1 == 3 && ver2 == 3){
-        strcpy(tls_info.version,"Version : TLS 1.3");
+        strcpy(tls_info.version,"TLS 1.3");
     }
+
+    tls_info.length[0] = p[3];
+    tls_info.length[1] = p[4];
 
     
 
@@ -295,10 +300,11 @@ void processPackets(unsigned char *buffer,int length)
     
     color = Cyan;
     sslN++;
-    strcpy(tm,"SSL");
+    strcpy(tm,tls_info.version);
     print(30,color);
     char temp[] = "Length : ";
-    printf("%-20s%-20s%-20s%-20d%-20d%-20s% -20s %s%x%x\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest),tls_info.rec_type,tls_info.version,temp,(unsigned int)tls_info.length[0],(unsigned int)tls_info.length[1]);
+    
+    printf("%-20s%-20s%-20s%-20d%-20d%-20s\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest),tls_info.rec_type);
     refresh();
     fl = 1;
     
@@ -307,7 +313,8 @@ void processPackets(unsigned char *buffer,int length)
     
     if(fl==0){
     print(31,color);
-    printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
+    char temp[] = "SYN :";
+    printf("%-20s%-20s%-20s%-20d%-20d%s %d ACK : %d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest),temp,tcp->syn,tcp->ack);
     refresh();
     }
     }
@@ -330,7 +337,9 @@ void processPackets(unsigned char *buffer,int length)
         printPayload(buffer+iphdrlen+ntohs(udp->len), payload_len);
         fprintf(pf,"\n\n\n");
         print(37,color);
-        printf("%s %s  UDP  %d  %d \n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),ntohs(udp->source),ntohs(udp->dest));
+        char temp[] = "UDP";
+        char temp2[] = "Length : ";
+        printf("%-20s%-20s%-20s%-20d%-20d%s%d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),temp,ntohs(udp->source),ntohs(udp->dest),temp2,ntohs(udp->len));
         refresh();
 
     }
