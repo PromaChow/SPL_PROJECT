@@ -46,6 +46,19 @@ struct IP
     unsigned char source[4];
     unsigned char destination[4];
 };
+
+struct ARP{
+    unsigned short int hardware_type;
+    unsigned short int protocol;
+    unsigned char hardware_size;
+    unsigned char protocol_size;
+    unsigned short int opcode;
+    unsigned char  sender_MAC[6];
+    unsigned char  sender_IP[4];
+    unsigned char  target_MAC[6];
+    unsigned char  target_IP[4];
+
+};
 struct TCP
 {
     unsigned short int srcport;
@@ -206,6 +219,59 @@ int pcap_Analysis(char fileName[100])
         }
         fprintf(fp,"Ethernet type: %x\n\n",ehead.ethType);
 
+        if(ehead.ethType==2054){
+            struct ARP arp;
+            fprintf(fp,"ARP\n");
+            fread(&arp, sizeof(struct ARP),1,pf);
+
+            if(arp.hardware_type==256)
+            fprintf(fp,"Hardware Type : Ethernet");
+            fprintf(fp,"Protocol type : %d\n",arp.protocol);
+            fprintf(fp,"Hardware size : %d\n",arp.hardware_size);
+            fprintf(fp,"Protocol size : %x\n",arp.protocol_size);
+            if(arp.opcode==256)
+            fprintf(fp,"Opcode : Request\n");
+            else if(arp.opcode==512)
+            fprintf(fp,"Opcode : Response\n");
+
+            fprintf(fp,"Sender MAC Address:");
+            for(int i=0; i<6; i++)
+            {
+            fprintf(fp,"%02x",arp.sender_MAC[i]);
+            if(i!=5)fprintf(fp,":");
+            else fprintf(fp,"\n");
+            }
+
+            fprintf(fp,"Sender IP Address:");
+            for(int i=0; i<4; i++)
+            {
+            fprintf(fp,"%d",(int)arp.sender_IP[i]);
+            if(i!=3) fprintf(fp,".");
+            else fprintf(fp,"\n\n");
+             }
+
+            fprintf(fp,"Target MAC Address:");
+            for(int i=0; i<6; i++)
+            {
+            fprintf(fp,"%02x",arp.target_MAC[i]);
+            if(i!=5)fprintf(fp,":");
+            else fprintf(fp,"\n");
+            }
+
+            fprintf(fp,"Target IP Address:");
+            for(int i=0; i<4; i++)
+            {
+            fprintf(fp,"%d",(int)arp.target_IP[i]);
+            if(i!=3) fprintf(fp,".");
+            else fprintf(fp,"\n\n");
+            }
+
+            
+            continue;
+
+        }
+
+        else if(ehead.ethType==2048){
         fprintf(fp,"--------IP Header-------\n");
         fread(&ip, sizeof(struct IP),1,pf);
         unsigned short p,len;
@@ -379,13 +445,23 @@ int pcap_Analysis(char fileName[100])
             for(int i=0; i<20; i++)
                 c= fgetc(pf);
         }
-            
+        
+         
 
         for(int bb=0; bb<phead.ocLen-54; bb++)
             c=fgetc(pf);
+            }
+
+            else{
+                //printf("he\n");
+               for(int bb=0; bb<phead.ocLen-14; bb++)
+                c=fgetc(pf);
+            } 
+            }
+        
             
 
-    }
+    
 
     fprintf(ff,"TCP : %lld\nUDP : %lld\nICMP : %lld\n\n",tcp,udp,icmp);
 
