@@ -67,20 +67,57 @@ void intHandler(int dummy){
     keepRunning=0;
     printStatistics();
 }
+unsigned char st[10];
+void fill_info(int t,unsigned char *p){
+    int i;
+    for(i=0;i<t;i++){
+        st[i]=(unsigned char)p[i];
+    }
+    st[i]='\0';
+
+}
+int isHTTP(unsigned char *pay, int size){
+    unsigned char c = (unsigned char)pay[0];
+    unsigned char c1 = (unsigned char)pay[1];
+    unsigned char c2 = (unsigned char)pay[2];
+    
+
+    if(c=='H' && c1=='T' && c2=='T'){
+        
+        fill_info(9,pay);
+       // printf("%s",st);
+        return 1;
+    }
+    if(c=='G' && c1=='E' && c2=='T'){
+        fill_info(3,pay);
+        return 2;
+    }
+    if(c=='P' && c1=='O' && c2=='S'){
+        fill_info(4,pay);
+        return 3;
+    }
+
+    if(c=='H' && c1=='E' && c2=='A'){
+        fill_info(4,pay);
+        return 4;
+    }
+
+    if(c=='D' && c1=='E' && c2=='L'){
+        fill_info(6,pay);
+        return 5;
+    }
+    return 0;
+}
 
 
 
 void printHTTPPayload(unsigned char *pay,int size)
 {
-
-
     part= fopen(FileName, "w");
     unsigned char *data= strstr(pay, "\r\n\r\n");
     if(data!=NULL)
     {
-        // fprintf(fp ,"%s", data);
-        // // printf("%s", data);
-        // fprintf(part, "%s", data);
+        
 
         for(unsigned char* i= data; i<pay+size; i++)
         {
@@ -91,20 +128,7 @@ void printHTTPPayload(unsigned char *pay,int size)
         fprintf(pf, "\n");
         fprintf(part,"\n");
     }
-    // for(int i=0;i<size;i++)
-    // {
-
-    //     unsigned char ch= pay[i];
-
-    //     if(pay[i]>=32 && pay[i]<=128)fprintf(fp,"%c",(unsigned char)pay[i]);
-    //     else fprintf(fp, ".");
-
-    //     // fprintf(fp, "%02x ", ch);
-
-    //     if(i!=0 && i%16==0)
-    //     fprintf(fp,"\n");
-
-    // }
+  
     fclose(part);
 
 }
@@ -217,7 +241,7 @@ int getSSLinfo(unsigned char *p,int len){
 
 void processPackets(unsigned char *buffer,int length)
 {
-    sleep(1);
+    
     packetNo++;
     int color;
     fprintf(pf,"PACK# %d\n",packetNo);
@@ -280,7 +304,7 @@ void processPackets(unsigned char *buffer,int length)
     unsigned short payload_len= length - (iphdrlen+tcphdrlen);
     printPayload(buffer+iphdrlen+tcphdrlen, payload_len);
     fprintf(pf,"\n\n\n");
-    if(ntohs(tcp->source)==80 || ntohs(tcp->dest)==80){
+    if((ntohs(tcp->source)==80 || ntohs(tcp->dest)==80) && (isHTTP(buffer+iphdrlen+tcphdrlen, payload_len))){
     
     httpN++;
             
@@ -295,7 +319,7 @@ void processPackets(unsigned char *buffer,int length)
             fl = 1;
             print(37,color);
             strcpy(tm,"HTTP");
-            printf("%-20s%-20s%-20s%-20d%-20d\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest));
+            printf("%-20s%-20s%-20s%-20d%-20d %s\n\n",inet_ntoa(IPsource.sin_addr),inet_ntoa(IPdest.sin_addr),tm,ntohs(tcp->source),ntohs(tcp->dest),st);
             fl = 1;
     }
 
@@ -352,7 +376,7 @@ void processPackets(unsigned char *buffer,int length)
     
     if(protocol==1)
     icmpN++;
-   
+   sleep(1);
    // printf("%sTCP  : %d  %sUDP : %d  %sHTTP  : %d  %sSSL  : %d\r",KRED,tcpN,KBLU,udpN,KMAG,httpN,KCYN,sslN);
 }
 
