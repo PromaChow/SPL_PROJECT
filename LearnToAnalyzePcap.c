@@ -109,32 +109,28 @@ int similar(int arr[],int Addr[]){
     return 1;
 }
 
+
 void change(int IPAddr[],int flag){
 
     long long k,f=0;
     for(int i=0;i<=track_bound;i++){
         if(similar(IPAddr,track[i].IP)){
+            f=1;
             if(flag == 1){
                 k = track[i].syn;
                 k++;
                 track[i].syn = k;
-                f=1;  
+                
                 
             }
             else{
                 k = track[i].syn_ack;
                 k++;
                 track[i].syn_ack = k;
-                f=1;
+               
             }
 
-            if((track[i].syn-20)>=track[i].syn_ack)
-                {
-                    if(!find_duplicate(i)){
-                        spoof_bound++;
-                        spoof[spoof_bound]=i;
-                    }
-                }
+             printf("%ld %ld\n",track[i].syn,track[i].syn_ack);
                 break;
         }
 
@@ -147,17 +143,33 @@ void change(int IPAddr[],int flag){
 
             for(int i=0;i<4;i++){
                 track[track_bound].IP[i]=IPAddr[i];
+                printf("%d ",track[track_bound].IP[i]);
+                
             }
+            printf("\n");
             if(flag==1)
-            track[track_bound].syn=1;
+            {
+                track[track_bound].syn=1;
+                track[track_bound].syn_ack=0;
+                
+            }
             else
             {
                 track[track_bound].syn_ack=1;
+                track[track_bound].syn=0;
             }
-            
+           
         }
     
 
+}
+void check_flood(){
+    
+    for(int i=0;i<=track_bound;i++){
+        if((track[i].syn-track[i].syn_ack)>20)
+            spoof[++spoof_bound] = i;
+            printf("%d\n",i);
+    }
 }
 
 
@@ -299,18 +311,22 @@ int pcap_Analysis(char fileName[100])
             fprintf(fp,"%d",(int)ip.source[i]);
             //printf("%d\n",(int)ip.source[i]);
             arr[lm++]=(int)ip.source[i];
+          //  printf("%d ",arr[lm-1]);
             if(i!=3) fprintf(fp,".");
             else fprintf(fp,"\n");
         }
+       // printf("\n");
         lm=0;
         fprintf(fp,"destination IP:");
         for(int i=0; i<4; i++)
         {
             fprintf(fp,"%d",(int)ip.destination[i]);
             arr2[lm++]=(int)ip.destination[i];
+            //printf("%d ",arr2[lm-1]);
             if(i!=3) fprintf(fp,".");
             else fprintf(fp,"\n\n");
         }
+      //  printf("\n");
         int i=0;
         len=len*4;
         len=len-20;
@@ -464,13 +480,13 @@ int pcap_Analysis(char fileName[100])
     
 
     fprintf(ff,"TCP : %lld\nUDP : %lld\nICMP : %lld\n\n",tcp,udp,icmp);
-
+    check_flood();
     fprintf(ff,"No.of IP addresses which probably has been flooded with SYN packets : %lld\n\n",spoof_bound+1);
     if(spoof_bound>=0){
 
         fprintf(ff,"IP ADDRESSES :");
     }
-
+    
     for(int i=0;i<=spoof_bound;i++){
         for(int j=0;j<4;j++){
             if(j!=3)fprintf(ff,"%d.",track[i].IP[j]);
@@ -480,7 +496,7 @@ int pcap_Analysis(char fileName[100])
         
     }
 
-
+    
 
     printf("\n\nDONE!\n");
 
