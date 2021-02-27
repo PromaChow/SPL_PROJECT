@@ -3,7 +3,7 @@
 #include<string.h>
 #include <inttypes.h>
 #define MAX 100000
-
+FILE *pf,*fp,*ff;
 
 
 
@@ -91,6 +91,15 @@ long long spoof[MAX],s=0,tcp=0,udp=0,icmp=0;
 long long track_bound=-1,spoof_bound=-1;
 
 
+void printPay(int len){
+    char ch;
+    for(int i=0;i<len;i++){
+        ch = fgetc(pf);
+        printf("%02x",ch);
+    }
+    printf("\n");
+}
+
 int find_duplicate(long long k){
 
     for(int i=0;i<=spoof_bound;i++){
@@ -172,6 +181,14 @@ void check_flood(){
     }
 }
 
+void http_pay(){
+
+    for(int i=0;i<4;i++)
+    {
+        char ch = fgetc(pf);
+        printf("%c\n",ch);
+    }
+}
 
 int pcap_Analysis(char fileName[100])
 {
@@ -187,9 +204,10 @@ int pcap_Analysis(char fileName[100])
     unsigned short g;
     char flg[6];
 
-    FILE *pf= fopen(fileName,"rb");
-    FILE *fp =fopen("log.txt","w+");
-    FILE *ff =fopen("Stas.txt","w+");
+    int add_skip=0;
+    pf= fopen(fileName,"rb");
+    fp =fopen("log.txt","w+");
+    ff =fopen("Stas.txt","w+");
 
     fread(&ghead, sizeof(struct GlobalHeader), 1, pf);
 
@@ -212,6 +230,7 @@ int pcap_Analysis(char fileName[100])
         fprintf(fp,"Length of packet: %d\n",phead.ocLen);
 
         fread(&ehead, sizeof(struct EthernetHeader), 1, pf);
+        add_skip+=14;
         ehead.ethType= ntohs(ehead.ethType);
 
         fprintf(fp,"--------Ethernet Header-------\n");
@@ -286,6 +305,7 @@ int pcap_Analysis(char fileName[100])
         else if(ehead.ethType==2048){
         fprintf(fp,"--------IP Header-------\n");
         fread(&ip, sizeof(struct IP),1,pf);
+        add_skip+=20;
         unsigned short p,len;
         p=ip.IHL >>4;
         len=(ip.IHL & 0x0f);
@@ -330,6 +350,12 @@ int pcap_Analysis(char fileName[100])
         int i=0;
         len=len*4;
         len=len-20;
+        int skip = len;
+        while(skip>0){
+            add_skip++;
+            fgetc(pf);
+            skip--;
+        }
         char ch;
         if(protocol==6)
         {
@@ -337,16 +363,31 @@ int pcap_Analysis(char fileName[100])
             tcp++;
             //fprintf(fp,"this is TCP protocol\n");
             fread(&T,sizeof(struct TCP),1,pf);
+            add_skip+=20;
             fprintf(fp,"SOURCE PORT: %d\n",ntohs(T.srcport));
             fprintf(fp,"DESTINATION PORT : %d\n",ntohs(T.destport));
+            unsigned short hl = (T.tcp_resoff & 0xf0)>>4; 
+
+                skip = (hl*4)-20;
+                
+                while(skip>0){
+                add_skip++;
+                fgetc(pf);
+                skip--;
+                }
+               
 
             if(ntohs(T.srcport==443 )|| ntohs(T.destport)==443){
                 fprintf(fp,"This is a SSL packet\n");
             }
-
+               
             else if(ntohs(T.srcport==80) || ntohs(T.destport)==80){
                 fprintf(fp,"This is a HTTP packet\n");
+                
+                
             }
+                
+            
 
             fprintf(fp,"SEQUENCE NUMBER : %" PRIu32, ntohl(T.seqNum));
             fprintf(fp,"\n");
@@ -354,7 +395,7 @@ int pcap_Analysis(char fileName[100])
             fprintf(fp,"ACKNOWLEDGEMENT NUMBER: %" PRIu32, ntohl(T.ackNUm));
             fprintf(fp,"\n");
 
-            unsigned short hl = (T.tcp_resoff & 0xf0)>>4;
+            
             fprintf(fp,"Header Length: %d\n", hl*4);
 
 
@@ -424,13 +465,14 @@ int pcap_Analysis(char fileName[100])
             udp++;
             fprintf(fp,"--------UDP Header-------\n");
             fread(&U, sizeof(struct UDP), 1, pf);
+            add_skip+=8;
             fprintf(fp,"SOURCE PORT: %d\n",ntohs(U.srcport));
             fprintf(fp,"DESTINATION PORT : %d\n",ntohs(U.destport));
             fprintf(fp,"UDP length: %d\n",ntohs(U.len));
             fprintf(fp,"Checksum : 0x%x\n",ntohs(U.udp_checksum));
 
-            for(int i=0; i<12; i++)
-                c= fgetc(pf);
+            // for(int i=0; i<12; i++)
+            //     c= fgetc(pf);
         }
 
         else
@@ -458,21 +500,26 @@ int pcap_Analysis(char fileName[100])
             else if(protocol==19)fprintf(fp,"This is DCN-MEANS protocol");
             else if(protocol==20)fprintf(fp,"This is HMP protocol");
             else fprintf(fp,"protocol number: %d\n",protocol);
-            for(int i=0; i<20; i++)
-                c= fgetc(pf);
+            // for(int i=0; i<20; i++)
+            //     c= fgetc(pf);
         }
         
-         
-
-        for(int bb=0; bb<phead.ocLen-54; bb++)
-            c=fgetc(pf);
-            }
+         printf("pack %d\n",it);
+        printPay(phead.ocLen-add_skip);
+        // for(int bb=0; bb<(phead.ocLen-add_skip); bb++){
+        //     c=fgetc(pf);
+        //     printf("%02x ",(unsigned int)c);
+        // }
+        //     printf("\n");
+            
+        }
 
             else{
                 //printf("he\n");
                for(int bb=0; bb<phead.ocLen-14; bb++)
                 c=fgetc(pf);
-            } 
+            }
+            add_skip=0; 
             }
         
             
