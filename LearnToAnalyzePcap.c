@@ -92,12 +92,53 @@ long long track_bound=-1,spoof_bound=-1;
 
 
 void printPay(int len){
-    char ch;
+    unsigned char ch[16];
+    char c;
     for(int i=0;i<len;i++){
-        ch = fgetc(pf);
-        printf("%02x",ch);
+        if(i!=0 && i%16==0){
+            fprintf(fp,"                        ");
+            for(int j=i-16;j<i;j++){
+                if((unsigned int)ch[j%16]>=32 && (unsigned int)ch[j%16]<=127){
+                fprintf(fp,"%c",ch[j%16]);
+                }
+                else
+                {
+                    fprintf(fp,".");
+                }
+                
+        }
+        fprintf(fp,"\n");
+        }
+        
+        
+        ch[i%16]=fgetc(pf);
+        fprintf(fp,"%02x ",(unsigned int)ch[i%16]);
+
+        if(i== len-1)
+        {
+            for(int j=0;j<15-i%16;j++){
+                fprintf(fp,"   ");
+            }
+            fprintf(fp,"                        ");
+
+            for(int j=i-i%16;j<=i;j++){
+                if((unsigned int)ch[j%16]>=32 && (unsigned int)ch[j%16]<=127)
+                {
+                    fprintf(fp,"%c",ch[j%16]);
+                    
+                }
+                else
+                {
+                    fprintf(fp,".");
+                }
+                
+            }
+
+        
     }
-    printf("\n");
+    }
+    fprintf(fp,"\n\n");
+    
 }
 
 int find_duplicate(long long k){
