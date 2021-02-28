@@ -4,6 +4,7 @@
 #include <inttypes.h>
 #define MAX 100000
 FILE *pf,*fp,*ff;
+FILE *ses_fp;
 char ptr[65536];
 
 
@@ -90,9 +91,9 @@ struct flood{
 
 struct http_ses{
     char filename[100];
-    FILE *ses_fp;
-    unsigned char IP_source[4];
-    unsigned char IP_destination[4];
+    
+    unsigned int IP_source[4];
+    unsigned int IP_destination[4];
     unsigned short int  s_port;
     unsigned short int  d_port;
     unsigned int       expecting_seqNum;
@@ -156,10 +157,14 @@ void printPay(int len){
                     ptr[j] = ch[j%16];
                     
                 }
-                else
+              else
                 {
                     fprintf(fp,".");
-                    ptr[j] = '.';
+                    if((unsigned int)ch[j%16]==10) {
+                        ptr[j] = '%';
+                    }
+                    else if((unsigned int)ch[j%16]==13) ptr[j] = '/';
+                    else ptr[j] = '.';
                 }
                 
             }
@@ -172,13 +177,120 @@ void printPay(int len){
 }
 
 
-void http_pay(int len,int http){
+void http_pay(int len,int http,struct http_ses http_session,int pd){
     
     
     printPay(len);
-    
-    for(int i=0;i<len;i++){
-        printf("%c ",ptr[i]);
+    ptr[len]='\0';
+    //printf("%s\n",ptr);
+   // printf("%d %d\n", http_session.s_port,http_session.d_port);
+    // for(int i=0;i<4;i++){
+    //     printf("%d ",http_session.IP_source[i]);
+    // }
+
+    // printf("\n");
+    // for(int i=0;i<4;i++){
+    //     printf("%d ",http_session.IP_source[i]);
+    // }
+    // printf("\n");
+
+    if(http==1){
+       // printf("hello\n");
+       
+        char *r;
+        r = strstr(ptr,"GET");
+        if(r!=NULL){
+        r = strstr(ptr,"Host:");
+        if(r!=NULL){
+            
+            int l=r-ptr+6;
+            //printf("%d\n",l);
+            int k=0;
+            
+            while(l<len && ptr[l]!='/' && ptr[l+1]!='%'){
+                html_ses[s_k].filename[k++]=ptr[l++];
+               
+            }
+            
+            html_ses[s_k].filename[k]='\0';
+            char file_name[1000];
+            //sprintf(file_name, "index.html", html_ses[s_k].filename );
+
+
+            ses_fp=fopen("index.html","w+");
+            if(ses_fp==NULL)
+            printf("BRO U A STUPID FAILURE\n");
+            html_ses[s_k].chunked = http_session.chunked;
+            html_ses[s_k].s_port = http_session.s_port;
+            html_ses[s_k].d_port = http_session.d_port;
+            html_ses[s_k].prev_seq = http_session.prev_seq;
+            html_ses[s_k].prev_ack = http_session.prev_ack;
+            html_ses[s_k].expecting_seqNum = http_session.prev_ack;
+            for(int i=0;i<4;i++){
+                html_ses[s_k].IP_source[i] = http_session.IP_source[i];
+                html_ses[s_k].IP_destination[i]= http_session.IP_destination[i]; 
+                }
+
+            
+
+            printf("%s %d %d %u %u\n", html_ses[s_k].filename,html_ses[s_k].s_port,html_ses[s_k].d_port,html_ses[s_k].expecting_seqNum,html_ses[s_k].prev_seq);
+            s_k++;
+            
+        
+        }
+    }
+    else{
+        if(pd==0){
+          //   printf("hello\n");
+            int j=-1;
+            for(int i=0;i<s_k;i++){
+                printf("%d %d\n",http_session.d_port,html_ses[i].s_port);
+                if(http_session.d_port == html_ses[i].s_port){
+                    
+                    j=i;
+                }
+                else {
+                   
+                    j=-1;
+                    continue;
+                }
+                printf("%d %d\n",http_session.s_port,html_ses[i].d_port);
+                if(http_session.s_port == html_ses[i].d_port){
+                    
+                    j=i;
+                }
+                else {
+                    j=-1;
+                    continue;
+                }
+                
+                for(int k=0;k<4;k++){
+                    if(http_session.IP_source[k] != html_ses[i].IP_destination[k]){
+                        printf("%d %d\n",http_session.IP_source[k],html_ses[i].IP_destination[k]);
+                        j=-1;
+                        break;
+                    }
+                }
+                if(j==-1) continue;
+                
+                for(int k=0;k<4;k++){
+                    if(http_session.IP_destination[k] != html_ses[i].IP_source[k]){
+                        printf("%d %d\n",http_session.IP_destination[k],html_ses[i].IP_source[k]);
+                        j=-1;
+                        break;
+                    }
+                }
+                if(j!=-1) break;
+            }
+            //printf("%d\n",j);
+            if(j!=-1){
+                if(http_session.prev_seq == html_ses[j].expecting_seqNum){
+                    printf("%u\n",http_session.prev_seq);
+                    html_ses[j].expecting_seqNum = http_session.prev_seq+(unsigned int)len;
+                }
+            }
+        }
+    }
     }
     printf("\n\n");
     
@@ -237,7 +349,7 @@ void change(int IPAddr[],int flag){
 
             for(int i=0;i<4;i++){
                 track[track_bound].IP[i]=IPAddr[i];
-                printf("%d ",track[track_bound].IP[i]);
+              //  printf("%d ",track[track_bound].IP[i]);
                 
             }
             printf("\n");
@@ -275,11 +387,12 @@ int pcap_Analysis(char fileName[100])
     struct IP ip;
     struct TCP T;
     struct UDP U;
-    
+    struct http_ses http_session;
 
     unsigned char c, protocol;
     unsigned short g;
     char flg[6];
+    int pd=0;
 
     int add_skip=0;
     pf= fopen(fileName,"rb");
@@ -300,7 +413,7 @@ int pcap_Analysis(char fileName[100])
 
     for(int it=0; !feof(pf); it++)
     {
-
+        pd=0;
         fprintf(fp,"\n\npack#%d\n\n: ",it+1);
         fread(&phead, sizeof(struct PacketHeader), 1, pf);
 
@@ -426,6 +539,8 @@ int pcap_Analysis(char fileName[100])
       //  printf("\n");
         int i=0;
         len=len*4;
+        if((phead.ocLen-ntohs(ip.length))>14)
+        pd=1;
         len=len-20;
         int skip = len;
         while(skip>0){
@@ -457,9 +572,20 @@ int pcap_Analysis(char fileName[100])
             if(ntohs(T.srcport==443 )|| ntohs(T.destport)==443){
                 fprintf(fp,"This is a SSL packet\n");
             }
-               
-            else if(ntohs(T.srcport==80) || ntohs(T.destport)==80){
+            
+            else if(ntohs(T.srcport)==80 || ntohs(T.destport)==80){
                 fprintf(fp,"This is a HTTP packet\n");
+                http_session.prev_seq = ntohl(T.seqNum);
+                http_session.prev_ack = ntohl(T.ackNUm);
+                http_session.d_port = ntohs(T.destport);
+                http_session.s_port = ntohs(T.srcport);
+                for(int i=0;i<4;i++){
+                http_session.IP_source[i] = ip.source[i];
+                http_session.IP_destination[i]= ip.destination[i]; 
+                }
+                http_session.chunked=1;
+                
+                
                 
                 
             }
@@ -581,10 +707,12 @@ int pcap_Analysis(char fileName[100])
             //     c= fgetc(pf);
         }
         
-         printf("pack %d\n",it);
-         if(ntohs(T.srcport==80) || ntohs(T.destport)==80) http_pay(phead.ocLen-add_skip,1);
+         printf("pack %d\n",it+1);
+         
+         //printf("%d\n",n);
+         if(ntohs(T.srcport)==80 || ntohs(T.destport)==80) http_pay(phead.ocLen-add_skip,1,http_session,pd);
          else
-        http_pay(phead.ocLen-add_skip,0);
+        http_pay(phead.ocLen-add_skip,0,http_session,pd);
         // for(int bb=0; bb<(phead.ocLen-add_skip); bb++){
         //     c=fgetc(pf);
         //     printf("%02x ",(unsigned int)c);
