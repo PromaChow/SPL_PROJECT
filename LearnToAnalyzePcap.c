@@ -4,7 +4,7 @@
 #include <inttypes.h>
 #define MAX 100000
 FILE *pf,*fp,*ff;
-
+char ptr[65536];
 
 
 struct GlobalHeader
@@ -86,24 +86,51 @@ struct flood{
     unsigned long int syn_ack; 
 };
 
+
+
+struct http_ses{
+    char filename[100];
+    FILE *ses_fp;
+    unsigned char IP_source[4];
+    unsigned char IP_destination[4];
+    unsigned short int  s_port;
+    unsigned short int  d_port;
+    unsigned int       expecting_seqNum;
+    unsigned int prev_seq;
+    unsigned int prev_ack;
+    int chunked;
+    
+}html_ses[1000];
+int s_k=0;
+
 struct flood track[MAX];
 long long spoof[MAX],s=0,tcp=0,udp=0,icmp=0;
 long long track_bound=-1,spoof_bound=-1;
 
 
+
+
+
 void printPay(int len){
     unsigned char ch[16];
     char c;
+    
     for(int i=0;i<len;i++){
         if(i!=0 && i%16==0){
             fprintf(fp,"                        ");
             for(int j=i-16;j<i;j++){
-                if((unsigned int)ch[j%16]>=32 && (unsigned int)ch[j%16]<=127){
+                if((unsigned int)ch[j%16]>=32 && (unsigned int)ch[j%16]<=126){
                 fprintf(fp,"%c",ch[j%16]);
+                ptr[j] = ch[j%16];
                 }
                 else
                 {
                     fprintf(fp,".");
+                    if((unsigned int)ch[j%16]==10) {
+                        ptr[j] = '%';
+                    }
+                    else if((unsigned int)ch[j%16]==13) ptr[j] = '/';
+                    else ptr[j] = '.';
                 }
                 
         }
@@ -113,6 +140,7 @@ void printPay(int len){
         
         ch[i%16]=fgetc(pf);
         fprintf(fp,"%02x ",(unsigned int)ch[i%16]);
+        
 
         if(i== len-1)
         {
@@ -125,11 +153,13 @@ void printPay(int len){
                 if((unsigned int)ch[j%16]>=32 && (unsigned int)ch[j%16]<=127)
                 {
                     fprintf(fp,"%c",ch[j%16]);
+                    ptr[j] = ch[j%16];
                     
                 }
                 else
                 {
                     fprintf(fp,".");
+                    ptr[j] = '.';
                 }
                 
             }
@@ -138,6 +168,20 @@ void printPay(int len){
     }
     }
     fprintf(fp,"\n\n");
+    
+}
+
+
+void http_pay(int len,int http){
+    
+    
+    printPay(len);
+    
+    for(int i=0;i<len;i++){
+        printf("%c ",ptr[i]);
+    }
+    printf("\n\n");
+    
     
 }
 
@@ -222,14 +266,6 @@ void check_flood(){
     }
 }
 
-void http_pay(){
-
-    for(int i=0;i<4;i++)
-    {
-        char ch = fgetc(pf);
-        printf("%c\n",ch);
-    }
-}
 
 int pcap_Analysis(char fileName[100])
 {
@@ -546,7 +582,9 @@ int pcap_Analysis(char fileName[100])
         }
         
          printf("pack %d\n",it);
-        printPay(phead.ocLen-add_skip);
+         if(ntohs(T.srcport==80) || ntohs(T.destport)==80) http_pay(phead.ocLen-add_skip,1);
+         else
+        http_pay(phead.ocLen-add_skip,0);
         // for(int bb=0; bb<(phead.ocLen-add_skip); bb++){
         //     c=fgetc(pf);
         //     printf("%02x ",(unsigned int)c);
