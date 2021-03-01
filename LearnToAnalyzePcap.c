@@ -128,9 +128,9 @@ void printPay(int len){
                 {
                     fprintf(fp,".");
                     if((unsigned int)ch[j%16]==10) {
-                        ptr[j] = '%';
+                        ptr[j] = '\n';
                     }
-                    else if((unsigned int)ch[j%16]==13) ptr[j] = '/';
+                    else if((unsigned int)ch[j%16]==13) ptr[j] = '\r';
                     else ptr[j] = '.';
                 }
                 
@@ -161,9 +161,9 @@ void printPay(int len){
                 {
                     fprintf(fp,".");
                     if((unsigned int)ch[j%16]==10) {
-                        ptr[j] = '%';
+                        ptr[j] = '\n';
                     }
-                    else if((unsigned int)ch[j%16]==13) ptr[j] = '/';
+                    else if((unsigned int)ch[j%16]==13) ptr[j] = '\r';
                     else ptr[j] = '.';
                 }
                 
@@ -177,7 +177,7 @@ void printPay(int len){
 }
 
 
-void http_pay(int len,int http,struct http_ses http_session,int pd){
+void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_pay){
     
     
     printPay(len);
@@ -193,11 +193,11 @@ void http_pay(int len,int http,struct http_ses http_session,int pd){
     //     printf("%d ",http_session.IP_source[i]);
     // }
     // printf("\n");
-
+    char *r;
     if(http==1){
        // printf("hello\n");
        
-        char *r;
+        
         r = strstr(ptr,"GET");
         if(r!=NULL){
         r = strstr(ptr,"Host:");
@@ -207,7 +207,7 @@ void http_pay(int len,int http,struct http_ses http_session,int pd){
             //printf("%d\n",l);
             int k=0;
             
-            while(l<len && ptr[l]!='/' && ptr[l+1]!='%'){
+            while(l<len && ptr[l]!='\r' && ptr[l+1]!='\n'){
                 html_ses[s_k].filename[k++]=ptr[l++];
                
             }
@@ -220,7 +220,7 @@ void http_pay(int len,int http,struct http_ses http_session,int pd){
             ses_fp=fopen("index.html","w+");
             if(ses_fp==NULL)
             printf("BRO U A STUPID FAILURE\n");
-            html_ses[s_k].chunked = http_session.chunked;
+            html_ses[s_k].chunked = 0;
             html_ses[s_k].s_port = http_session.s_port;
             html_ses[s_k].d_port = http_session.d_port;
             html_ses[s_k].prev_seq = http_session.prev_seq;
@@ -240,7 +240,7 @@ void http_pay(int len,int http,struct http_ses http_session,int pd){
         }
     }
     else{
-        if(pd==0){
+        if(contains_pay){
           //   printf("hello\n");
             int j=-1;
             for(int i=0;i<s_k;i++){
@@ -285,11 +285,39 @@ void http_pay(int len,int http,struct http_ses http_session,int pd){
             //printf("%d\n",j);
             if(j!=-1){
                 if(http_session.prev_seq == html_ses[j].expecting_seqNum){
-                    printf("%u\n",http_session.prev_seq);
-                    html_ses[j].expecting_seqNum = http_session.prev_seq+(unsigned int)len;
+
+                    printf("%d %u\n",j,http_session.prev_seq);
+                    html_ses[j].expecting_seqNum = http_session.prev_seq+(unsigned int)(len-pd);
+
+
+
+                    //write to file
+                    if(html_ses[j].chunked==0){
+                    r = strstr(ptr,"\r\n\r\n");
+                    if(r!=NULL)
+                    printf("%s\n",r);
+                    html_ses[j].chunked=1;
+                    
+                    for(int i=r-ptr;i<(len-pd);i++){
+                        
+                            fprintf(ses_fp,"%c",ptr[i]);
+                        
+                    }
+
+                    }
+                    else{
+                        for(int i=0;i<(len-pd);i++){
+                        
+                            printf("%s\n",ptr);
+                            fprintf(ses_fp,"%c",ptr[i]);
+                        
+                    }
+                    }
+
                 }
             }
-        }
+        
+    }
     }
     }
     printf("\n\n");
@@ -392,7 +420,7 @@ int pcap_Analysis(char fileName[100])
     unsigned char c, protocol;
     unsigned short g;
     char flg[6];
-    int pd=0;
+    int pd=0,contains_pay=1;
 
     int add_skip=0;
     pf= fopen(fileName,"rb");
@@ -413,7 +441,7 @@ int pcap_Analysis(char fileName[100])
 
     for(int it=0; !feof(pf); it++)
     {
-        pd=0;
+        pd=0,contains_pay=1;
         fprintf(fp,"\n\npack#%d\n\n: ",it+1);
         fread(&phead, sizeof(struct PacketHeader), 1, pf);
 
@@ -539,10 +567,10 @@ int pcap_Analysis(char fileName[100])
       //  printf("\n");
         int i=0;
         len=len*4;
-        if((phead.ocLen-ntohs(ip.length))>14)
-        pd=1;
-        len=len-20;
-        int skip = len;
+        pd=phead.ocLen-(ntohs(ip.length)+14);
+        
+        //len=len-20;
+        int skip = len-20;
         while(skip>0){
             add_skip++;
             fgetc(pf);
@@ -560,6 +588,9 @@ int pcap_Analysis(char fileName[100])
             fprintf(fp,"DESTINATION PORT : %d\n",ntohs(T.destport));
             unsigned short hl = (T.tcp_resoff & 0xf0)>>4; 
 
+                if((ntohs(ip.length)-(len+(hl*4)))==0){
+                    contains_pay = 0;
+                }
                 skip = (hl*4)-20;
                 
                 while(skip>0){
@@ -709,10 +740,10 @@ int pcap_Analysis(char fileName[100])
         
          printf("pack %d\n",it+1);
          
-         //printf("%d\n",n);
-         if(ntohs(T.srcport)==80 || ntohs(T.destport)==80) http_pay(phead.ocLen-add_skip,1,http_session,pd);
+         printf("%d\n",contains_pay);
+         if(ntohs(T.srcport)==80 || ntohs(T.destport)==80) http_pay(phead.ocLen-add_skip,1,http_session,pd,contains_pay);
          else
-        http_pay(phead.ocLen-add_skip,0,http_session,pd);
+        http_pay(phead.ocLen-add_skip,0,http_session,pd,contains_pay);
         // for(int bb=0; bb<(phead.ocLen-add_skip); bb++){
         //     c=fgetc(pf);
         //     printf("%02x ",(unsigned int)c);
