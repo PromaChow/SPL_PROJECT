@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include<string.h>
 #include <inttypes.h>
+#include<sys/stat.h>
 #define MAX 100000
 FILE *pf,*fp,*ff;
 FILE *ses_fp;
@@ -88,7 +89,6 @@ struct flood{
 };
 
 
-
 struct http_ses{
     char filename[100];
     
@@ -96,10 +96,11 @@ struct http_ses{
     unsigned int IP_destination[4];
     unsigned short int  s_port;
     unsigned short int  d_port;
-    unsigned int       expecting_seqNum;
+    unsigned int       first_seqNum;
     unsigned int prev_seq;
     unsigned int prev_ack;
     int chunked;
+    int c;
     
 }html_ses[1000];
 int s_k=0;
@@ -160,10 +161,10 @@ void printPay(int len){
               else
                 {
                     fprintf(fp,".");
-                    if((unsigned int)ch[j%16]==10) {
+                    if((unsigned int)ch[j%16]==10) { //replaced 0a
                         ptr[j] = '\n';
                     }
-                    else if((unsigned int)ch[j%16]==13) ptr[j] = '\r';
+                    else if((unsigned int)ch[j%16]==13) ptr[j] = '\r'; //replaced 0d
                     else ptr[j] = '.';
                 }
                 
@@ -182,29 +183,30 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
     
     printPay(len);
     ptr[len]='\0';
-    //printf("%s\n",ptr);
-   // printf("%d %d\n", http_session.s_port,http_session.d_port);
-    // for(int i=0;i<4;i++){
-    //     printf("%d ",http_session.IP_source[i]);
-    // }
 
-    // printf("\n");
-    // for(int i=0;i<4;i++){
-    //     printf("%d ",http_session.IP_source[i]);
-    // }
-    // printf("\n");
     char *r;
     if(http==1){
-       // printf("hello\n");
-       
-        
+      
+        char type[10];
         r = strstr(ptr,"GET");
         if(r!=NULL){
+            
+
+           
+            if(strstr(ptr,"text/html")!=NULL){
+                strcpy(type,"html");
+            }
+            else if(strstr(ptr,"text/css")!=NULL){
+                strcpy(type,"css");
+            }
+            else if(strstr(ptr,"text/javascript")!=NULL){
+                strcpy(type,"js");
+            }
         r = strstr(ptr,"Host:");
         if(r!=NULL){
             
             int l=r-ptr+6;
-            //printf("%d\n",l);
+            
             int k=0;
             
             while(l<len && ptr[l]!='\r' && ptr[l+1]!='\n'){
@@ -213,11 +215,14 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
             }
             
             html_ses[s_k].filename[k]='\0';
+            html_ses[s_k].c=1;
             char file_name[1000];
+            
             //sprintf(file_name, "index.html", html_ses[s_k].filename );
-
-
-            ses_fp=fopen("index.html","w+");
+            
+            snprintf(file_name, 1000, "http_htmls/index_%d.%s",(s_k+1),type);
+            ses_fp=fopen(file_name,"w+");
+            chmod(file_name,S_IRWXO);
             if(ses_fp==NULL)
             printf("BRO U A STUPID FAILURE\n");
             html_ses[s_k].chunked = 0;
@@ -225,7 +230,7 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
             html_ses[s_k].d_port = http_session.d_port;
             html_ses[s_k].prev_seq = http_session.prev_seq;
             html_ses[s_k].prev_ack = http_session.prev_ack;
-            html_ses[s_k].expecting_seqNum = http_session.prev_ack;
+            html_ses[s_k].first_seqNum = http_session.prev_ack;
             for(int i=0;i<4;i++){
                 html_ses[s_k].IP_source[i] = http_session.IP_source[i];
                 html_ses[s_k].IP_destination[i]= http_session.IP_destination[i]; 
@@ -233,9 +238,8 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
 
             
 
-            printf("%s %d %d %u %u\n", html_ses[s_k].filename,html_ses[s_k].s_port,html_ses[s_k].d_port,html_ses[s_k].expecting_seqNum,html_ses[s_k].prev_seq);
-            s_k++;
-            
+           // printf("%s %d %d %u %u\n", html_ses[s_k].filename,html_ses[s_k].s_port,html_ses[s_k].d_port,html_ses[s_k].expecting_seqNum,html_ses[s_k].prev_seq);
+            s_k++; 
         
         }
     }
@@ -244,7 +248,7 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
           //   printf("hello\n");
             int j=-1;
             for(int i=0;i<s_k;i++){
-                printf("%d %d\n",http_session.d_port,html_ses[i].s_port);
+               // printf("%d %d\n",http_session.d_port,html_ses[i].s_port);
                 if(http_session.d_port == html_ses[i].s_port){
                     
                     j=i;
@@ -254,7 +258,7 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
                     j=-1;
                     continue;
                 }
-                printf("%d %d\n",http_session.s_port,html_ses[i].d_port);
+              //  printf("%d %d\n",http_session.s_port,html_ses[i].d_port);
                 if(http_session.s_port == html_ses[i].d_port){
                     
                     j=i;
@@ -266,7 +270,7 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
                 
                 for(int k=0;k<4;k++){
                     if(http_session.IP_source[k] != html_ses[i].IP_destination[k]){
-                        printf("%d %d\n",http_session.IP_source[k],html_ses[i].IP_destination[k]);
+                       // printf("%d %d\n",http_session.IP_source[k],html_ses[i].IP_destination[k]);
                         j=-1;
                         break;
                     }
@@ -275,27 +279,26 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
                 
                 for(int k=0;k<4;k++){
                     if(http_session.IP_destination[k] != html_ses[i].IP_source[k]){
-                        printf("%d %d\n",http_session.IP_destination[k],html_ses[i].IP_source[k]);
+                      //  printf("%d %d\n",http_session.IP_destination[k],html_ses[i].IP_source[k]);
                         j=-1;
                         break;
                     }
                 }
                 if(j!=-1) break;
             }
-            //printf("%d\n",j);
+           
             if(j!=-1){
-                if(http_session.prev_seq == html_ses[j].expecting_seqNum){
+                
 
-                    printf("%d %u\n",j,http_session.prev_seq);
-                    html_ses[j].expecting_seqNum = http_session.prev_seq+(unsigned int)(len-pd);
-
-
-
+                    int pos = http_session.prev_seq - html_ses[j].first_seqNum;
+                    
+                    fseek(ses_fp,pos,SEEK_SET);
+                   
                     //write to file
                     if(html_ses[j].chunked==0){
                     r = strstr(ptr,"\r\n\r\n");
-                    if(r!=NULL)
-                    printf("%s\n",r);
+                    if(r!=NULL){
+                   
                     html_ses[j].chunked=1;
                     
                     for(int i=r-ptr;i<(len-pd);i++){
@@ -303,25 +306,28 @@ void http_pay(int len,int http,struct http_ses http_session,int pd,int contains_
                             fprintf(ses_fp,"%c",ptr[i]);
                         
                     }
+                    }
 
                     }
                     else{
+                        
                         for(int i=0;i<(len-pd);i++){
                         
-                            printf("%s\n",ptr);
+                            
                             fprintf(ses_fp,"%c",ptr[i]);
                         
                     }
+                    
                     }
+                    
 
-                }
+                
             }
         
     }
     }
     }
-    printf("\n\n");
-    
+   
     
 }
 
@@ -364,7 +370,7 @@ void change(int IPAddr[],int flag){
                
             }
 
-             printf("%ld %ld\n",track[i].syn,track[i].syn_ack);
+             
                 break;
         }
 
@@ -376,11 +382,9 @@ void change(int IPAddr[],int flag){
             track_bound++;
 
             for(int i=0;i<4;i++){
-                track[track_bound].IP[i]=IPAddr[i];
-              //  printf("%d ",track[track_bound].IP[i]);
-                
+                track[track_bound].IP[i]=IPAddr[i];  
             }
-            printf("\n");
+          
             if(flag==1)
             {
                 track[track_bound].syn=1;
@@ -402,7 +406,7 @@ void check_flood(){
     for(int i=0;i<=track_bound;i++){
         if((track[i].syn-track[i].syn_ack)>20)
             spoof[++spoof_bound] = i;
-            printf("%d\n",i);
+           
     }
 }
 
@@ -416,7 +420,8 @@ int pcap_Analysis(char fileName[100])
     struct TCP T;
     struct UDP U;
     struct http_ses http_session;
-
+    mkdir("http_htmls", 0777);
+    chmod("http_htmls",S_IRWXO);
     unsigned char c, protocol;
     unsigned short g;
     char flg[6];
@@ -437,11 +442,15 @@ int pcap_Analysis(char fileName[100])
     fprintf(fp,"network: %x\n",ghead.network);
 
     printf("Running.....\n");
+    sleep(1.5);
     printf("Analysing packets\n");
+    sleep(1);
 
     for(int it=0; !feof(pf); it++)
     {
+        add_skip=0;
         pd=0,contains_pay=1;
+        
         fprintf(fp,"\n\npack#%d\n\n: ",it+1);
         fread(&phead, sizeof(struct PacketHeader), 1, pf);
 
@@ -738,10 +747,15 @@ int pcap_Analysis(char fileName[100])
             //     c= fgetc(pf);
         }
         
-         printf("pack %d\n",it+1);
+        // printf("pack %d\n",it+1);
          
-         printf("%d\n",contains_pay);
-         if(ntohs(T.srcport)==80 || ntohs(T.destport)==80) http_pay(phead.ocLen-add_skip,1,http_session,pd,contains_pay);
+        // printf("%d\n",contains_pay);
+         
+         if(ntohs(T.srcport)==80 || ntohs(T.destport)==80){
+              http_pay(phead.ocLen-add_skip,1,http_session,pd,contains_pay);
+              T.srcport=0;
+              T.destport=0;
+         }
          else
         http_pay(phead.ocLen-add_skip,0,http_session,pd,contains_pay);
         // for(int bb=0; bb<(phead.ocLen-add_skip); bb++){
