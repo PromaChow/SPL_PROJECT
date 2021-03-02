@@ -4,15 +4,17 @@
 #include<sys/socket.h>	
 #include<stdlib.h>
 #include<errno.h> 
-#include<netinet/tcp.h>	
-#include<netinet/ip.h>
-#include<linux/if_ether.h>
 #include<arpa/inet.h>
 #include<netdb.h>
 #define TCP tcphdr
 #include"regx.h"
 #include"HostNameToIp.h"
+#include "Headers.h"
+#include "colors.h"
+
+
 char state[100];
+
 
 void service(int port){
 
@@ -37,6 +39,8 @@ void service(int port){
     else if(port == 67 || port == 68) strcpy(state,"DHCP");
 
     else if(port == 110) strcpy(state,"POP3");
+
+	else strcpy(state, "Unknown");
 
 
 }
@@ -179,8 +183,15 @@ int port_scan(char argv[],char ch,int p1,int p2)
 		}
 		
 		//gprintf("%s\n",desta);
-    
-    printf("Host Name          IP Address          Port Number          State           Service\n");
+    char hs[] = "Host Name";
+	char ip[] = "IP Address";
+	char prt[] = "Port Number";
+	char st[] = "State";
+	char srv[] = "Service";
+
+	printf("\033[1m\033[3m\033[%dm\033[%dm", 30, Yellow+10);
+    printf("%-20s%-20s%-20s%-20s%-20s\n\n",hs,ip,prt,st,srv);
+	refresh();
 
 
 	for(short int port = port_min; port<=port_max; port++){
@@ -283,14 +294,13 @@ int port_scan(char argv[],char ch,int p1,int p2)
             {
 				flag =0;
 
-				printf("\nTCP header Flags:\n\tSYN: %d\n",tcp->syn);
-				printf("\tRST: %d\n",tcp->rst);
-				printf("\tPSH: %d\n",tcp->psh);
-				printf("\tACK: %d\n",tcp->ack);
-				printf("\tURG: %d\n",tcp->urg);
 				if(tcp->rst) {
 
-					printf("%s         %s          %hd          Closed             %s\n",host_name,desta,port,state);
+					//printf("%s         %s          %hd          Closed             %s\n",host_name,desta,port,state);
+					char tm[] = "Closed";
+					print(Black);
+					printf("%-20s%-20s%-20hd%-20s%-20s\n",host_name,desta,port,tm,state);
+					refresh();
 					//printf("This port is closed!\n");
 					closed_ports++;
 				}
@@ -298,7 +308,10 @@ int port_scan(char argv[],char ch,int p1,int p2)
 			}
 
 			if(tcp->rst) {
-				printf("%s         %s          %hd          Closed               %s\n",host_name,desta,port,state);
+				char tm[] = "Closed";
+				print(Black);
+				printf("%-20s%-20s%-20hd%-20s%-20s\n\n",host_name,desta,port,tm,state);
+				refresh();
 				closed_ports++;
 			}
 
@@ -309,7 +322,11 @@ int port_scan(char argv[],char ch,int p1,int p2)
 
 	if(flag) {
 		open_ports++;
-		printf("%s          %s          %hd          Filtered              %s\n",host_name,desta,port,state);
+		
+				char tm[] = "Filtered";
+				print(Green);
+				printf("%-20s%-20s%-20hd%-20s%-20s\n\n",host_name,desta,port,tm,state);
+				refresh();
 	}
 	}
 
