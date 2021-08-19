@@ -4,12 +4,12 @@
 #include <inttypes.h>
 #include <sys/stat.h>
 #include "Headers.h"
+#include "colors.h"
 #define MAX 100000
 FILE *pf, *fp, *ff;
 FILE *ses_fp;
 char ptr[65536],p[65536];
-FILE *ptrr ;
-int it,fit;
+int it,fit,color;
 struct IP
 {
     u_char IHL;
@@ -69,6 +69,7 @@ long long track_bound = -1, spoof_bound = -1;
 void printPay(int len){
     unsigned char ch[16];
     char c;
+    
     for(int i=0;i<len;i++){
         
         if(i!=0 && i%16==0){
@@ -95,7 +96,7 @@ void printPay(int len){
         
         ch[i%16]=fgetc(pf);
         p[i] = ch[i%16];
-
+        
         fprintf(fp,"%02x ",(unsigned int)ch[i%16]);
         
 
@@ -130,8 +131,6 @@ void printPay(int len){
     }
     fprintf(fp,"\n\n");
     
-    //printf("%s",p);
-    
 }
 
 
@@ -140,14 +139,7 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
 {
 
     printPay(len);
-   ptrr = fopen("img.txt","wb+");
-    char *dum;
-    if(it == 434) {
-        dum = strstr(p,"\r\n\r\n");
-        printf("DUMM %c\n",p[len-1]);
-    }
     ptr[len] = '\0';
-    p[len] = '\0';
     char *r;
 
     if (http == 1)
@@ -155,8 +147,10 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
        // printf("hello\n");
         char type[10]="html";
         r = strstr(ptr, "GET");
+        
         if (r != NULL)
         {
+            
 
             if (strstr(ptr, "text/html") != NULL)
             {
@@ -185,7 +179,7 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                 
                 
                 snprintf(html_ses[s_k].filename, 1000, "http_htmls/index_%d.%s", (fit + 1), type);
-                printf("%s %d\n",html_ses[s_k].filename,it);
+              //  printf("%s %d\n",html_ses[s_k].filename,it);
                 type[0]='\0';
                 ses_fp = fopen(html_ses[s_k].filename, "w+");
                 chmod(html_ses[s_k].filename, S_IRWXO);
@@ -265,7 +259,7 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                 {
                     ses_fp = fopen(html_ses[j].filename,"a+");
                     
-                    printf(" write %s %d\n",html_ses[j].filename,it);
+                 //   printf(" write %s %d\n",html_ses[j].filename,it);
                     int pos = http_session.prev_seq - html_ses[j].first_seqNum;
 
                     fseek(ses_fp, pos, SEEK_SET);
@@ -274,7 +268,6 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                     
                         
                         r = strstr(ptr, "\r\n\r\n");
-                       // dumm = strstr(p,"\r\n\r\n");
                         int i = 0;
                         if (r != NULL) i = r-ptr+4;
                             int l=0;
@@ -292,11 +285,11 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
 
                     
                     if(psh == 1) {
-                        printf("%d\n",j);
-                        for(int i=0;i<s_k;i++){
-                                printf("%d %d\n",html_ses[i].s_port,html_ses[i].d_port);
-                            }
-                            printf("psh 1 %d\n",it);
+                       // printf("%d\n",j);
+                        // for(int i=0;i<s_k;i++){
+                        //         printf("%d %d\n",html_ses[i].s_port,html_ses[i].d_port);
+                        //     }
+                            //printf("psh 1 %d\n",it);
                             for(int k=j;k<s_k-1;k++){
                                 html_ses[k].s_port = html_ses[k+1].s_port;
                                 html_ses[k].d_port = html_ses[k+1].d_port;
@@ -314,7 +307,7 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                             }
                            s_k--;
                             for(int i=0;i<s_k;i++){
-                                printf("%d %d\n",html_ses[i].s_port,html_ses[i].d_port);
+                             //   printf("%d %d\n",html_ses[i].s_port,html_ses[i].d_port);
                             }
                             
                             
@@ -522,16 +515,55 @@ int pcap_Analysis(char fileName[100])
     fprintf(fp, "snaplen: %x\n", ghead.snaplen);
     fprintf(fp, "network: %x\n", ghead.network);
 
-    printf("Running.....\n");
-    sleep(1.5);
-    printf("Analysing packets\n");
-    sleep(1);
+    
+    printf("\033[5m\033[1m\033[3m\033[%dm", Cyan);
+    printf("Analysing packets\n\n");
+    refresh();
+
+    int p = 30;
+
+    char tmp[] = "Packet No";
+    printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
+    printf("%-20s", tmp);
+    refresh();
+
+
+    char tm[] = "IP Source Address";
+    printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
+    printf("%-20s", tm);
+    refresh();
+
+    strcpy(tm, "IP Dest Address");
+    printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
+    printf("%-20s", tm);
+    refresh();
+
+    strcpy(tm, "Protocol");
+    printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
+    printf("%-20s", tm);
+    refresh();
+
+    strcpy(tm, "Source Port");
+    printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
+    printf("%-20s", tm);
+    refresh();
+
+    strcpy(tm, "Dest Port");
+    printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
+    printf("%-20s", tm);
+    refresh();
+    printf("\n");
+
+    sleep(2);
 
     for (it = 0; !feof(pf); it++)
     {
+    
         add_skip = 0;
         pd = 0, contains_pay = 1;
         int ur = 0, ac = 0, ps = 0, rs = 0, sy = 0, fi = 0;
+        char src_ip[100],dest_ip[100];
+        int src,des;
 
         fprintf(fp, "\n\npack#%d\n\n: ", it + 1);
         //printf("Packet %d\n",it+1);
@@ -609,10 +641,11 @@ int pcap_Analysis(char fileName[100])
                 else
                     fprintf(fp, "\n");
             }
-
+               
             fprintf(fp, "Target IP Address:");
             for (int i = 0; i < 4; i++)
             {
+                
                 fprintf(fp, "%d", (int)arp.target_IP[i]);
                 if (i != 3)
                     fprintf(fp, ".");
@@ -645,28 +678,48 @@ int pcap_Analysis(char fileName[100])
             fprintf(fp, "source IP:");
 
             int arr[4], arr2[4];
-            int lm = 0;
+            int lm = 0,km=0;
 
             for (int i = 0; i < 4; i++)
             {
                 fprintf(fp, "%d", (int)ip.source[i]);
                 arr[lm++] = (int)ip.source[i];
+                src = (int) ip.source[i];
+                while(src!=0){
+                    src_ip[km++] = (src%10)+'0';
+                    src/=10;
+                }
                 if (i != 3)
-                    fprintf(fp, ".");
+                    {
+                        fprintf(fp, ".");
+                        src_ip[km++] = '.';
+                    }
                 else
                     fprintf(fp, "\n");
             }
+            src_ip[km]='\0';
+            
             lm = 0;
             fprintf(fp, "destination IP:");
+            km = 0;
             for (int i = 0; i < 4; i++)
             {
                 fprintf(fp, "%d", (int)ip.destination[i]);
+                des = (int) ip.source[i];
+                while(des!=0){
+                    dest_ip[km++] = (des%10)+'0';
+                    des/=10;
+                }
                 arr2[lm++] = (int)ip.destination[i];
-                if (i != 3)
+                
+                if (i != 3){
                     fprintf(fp, ".");
+                    dest_ip[km++]='.';
+                }
                 else
                     fprintf(fp, "\n\n");
             }
+            dest_ip[km]='\0';
             int i = 0;
             len = len * 4;
             pd = phead.ocLen - (ntohs(ip.length) + 14);
@@ -678,8 +731,11 @@ int pcap_Analysis(char fileName[100])
                 skip--;
             }
             char ch;
+            
             if (protocol == 6)
             {
+                color = Blue;
+                strcpy(tm, "TCP");
                 fprintf(fp, "--------TCP Header-------\n");
                 tcp++;
                 fprintf(fp, "this is TCP protocol\n");
@@ -701,15 +757,21 @@ int pcap_Analysis(char fileName[100])
                     fgetc(pf);
                     skip--;
                 }
+                src = ntohs(T.srcport);
+                des = ntohs(T.destport);
 
                 if (ntohs(T.srcport == 443) || ntohs(T.destport) == 443)
                 {
+                    color = Magenta;
+                    strcpy(tm,"SSL");
                     fprintf(fp, "This is a SSL packet\n");
 
                 }
 
                 else if (ntohs(T.srcport) == 80 || ntohs(T.destport) == 80)
                 {
+                    color = Yellow;
+                    strcpy(tm,"HTTP");
                     fprintf(fp, "This is a HTTP packet\n");
                     http_session.prev_seq = ntohl(T.seqNum);
                     http_session.prev_ack = ntohl(T.ackNUm);
@@ -790,6 +852,8 @@ int pcap_Analysis(char fileName[100])
                 fprintf(fp, "Window Size : %d\n", ntohs(T.tcp_win));
                 fprintf(fp, "Checksum : 0x%x\n", ntohs(T.tcp_checksum));
                 fprintf(fp, "Urgent Pointer : %d\n\n", ntohs(T.tcp_urgptr));
+
+
             }
 
             else if (protocol == 17)
@@ -802,10 +866,13 @@ int pcap_Analysis(char fileName[100])
                 fprintf(fp, "DESTINATION PORT : %d\n", ntohs(U.dest));
                 fprintf(fp, "UDP length: %d\n", ntohs(U.len));
                 fprintf(fp, "Checksum : 0x%x\n", ntohs(U.check));
+                src = ntohs(U.source);
+                des = ntohs(U.dest);
             }
 
             else
             {
+                
                 if (protocol == 0)
                     fprintf(fp, "This is HOPOPT protocol");
                 else if (protocol == 1)
@@ -850,6 +917,9 @@ int pcap_Analysis(char fileName[100])
                 else
                     fprintf(fp, "protocol number: %d\n", protocol);
             }
+            print(color);
+            printf("%-20d%-20s%-20s%-20s%-20d%-20d\n",it,src_ip,dest_ip,tm,src,des);
+          
 
             if (ntohs(T.srcport) == 80 || ntohs(T.destport) == 80)
             {
