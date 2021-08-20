@@ -61,7 +61,7 @@ struct http_ses
 int s_k = 0;
 
 struct flood track[MAX];
-long long spoof[MAX], s = 0, tcp = 0, udp = 0, icmp = 0;
+long long spoof[MAX], s = 0, tcp = 0, udp = 0, icmp = 0,http=0,ssl=0;
 long long track_bound = -1, spoof_bound = -1;
 
 
@@ -323,8 +323,10 @@ char ssl_inf[500];
 
 int print_SSL_info(int len,int contains_pay){
     struct sslheader SSL;
+    
     if(contains_pay && len>=5){
         fread(&SSL, sizeof(SSL), 1, pf);
+        
     
     int record_protocol = (unsigned int)SSL.record_type;
     int ver1 = (unsigned int)SSL.ver1, ver2 = (unsigned int)SSL.ver2;
@@ -334,7 +336,7 @@ int print_SSL_info(int len,int contains_pay){
         fprintf(fp, "-------SSL Packet-------\n");
         fprintf(fp, "Record Type : ");
         fprintf(fp, "Change Cipher Spec ");
-        strcpy(ssl_inf, "Change Cipher Spec ");
+        
     }
 
     else if (record_protocol == 21)
@@ -342,7 +344,7 @@ int print_SSL_info(int len,int contains_pay){
         fprintf(fp, "-------SSL Packet-------\n");
         fprintf(fp, "Record Type : ");
         fprintf(fp, "Alert");
-        strcpy(ssl_inf, "Alert ");
+       
     }
 
     else if (record_protocol == 22)
@@ -350,14 +352,14 @@ int print_SSL_info(int len,int contains_pay){
         fprintf(fp, "-------SSL Packet-------\n");
         fprintf(fp, "Record Type : ");
         fprintf(fp, "Handshake ");
-        strcpy(ssl_inf, "Handshake ");
+       
     }
     else if (record_protocol == 23)
     {
         fprintf(fp, "-------SSL Packet-------\n");
         fprintf(fp, "Record Type : ");
         fprintf(fp, "Application Data");
-        strcpy(ssl_inf, "Application Data ");
+        
     }
 
     else
@@ -367,30 +369,30 @@ int print_SSL_info(int len,int contains_pay){
         return 0;
     }
     fprintf(fp, "\nVersion : ");
-    strcat(ssl_inf, " ");
+    
     //version
     if (ver1 == 3 && ver2 == 0)
     {
         fprintf(fp, "SSL 3.0");
-        strcat(ssl_inf, "SSL 3.0");
+        
     }
 
     else if (ver1 == 3 && ver2 == 1)
     {
         fprintf(fp, "TLS 1.1");
-        strcat(ssl_inf, "TLS 1.1");
+        
     }
 
     else if (ver1 == 3 && ver2 == 2)
     {
         fprintf(fp, "TLS 1.2");
-        strcat(ssl_inf, "TLS 1.2");
+        
     }
 
     else if (ver1 == 3 && ver2 == 3)
     {
         fprintf(fp, "TLS 1.3");
-        strcat(ssl_inf, "TLS 1.3");
+        
     }
     fprintf(fp, "\nLength : ");
 
@@ -425,6 +427,7 @@ int similar(int arr[], int Addr[])
         if (arr[i] != Addr[i])
             return 0;
     }
+    
     return 1;
 }
 
@@ -434,7 +437,8 @@ void change(int IPAddr[], int flag)
     long long k, f = 0;
     for (int i = 0; i <= track_bound; i++)
     {
-        if (similar(IPAddr, track[i].IP))
+        int l = similar(IPAddr, track[i].IP);
+        if (l)
         {
             f = 1;
             if (flag == 1)
@@ -442,12 +446,14 @@ void change(int IPAddr[], int flag)
                 k = track[i].syn;
                 k++;
                 track[i].syn = k;
+                
             }
             else
             {
                 k = track[i].syn_ack;
                 k++;
                 track[i].syn_ack = k;
+             
             }
 
             break;
@@ -457,11 +463,13 @@ void change(int IPAddr[], int flag)
     if (f == 0)
     {
         track_bound++;
-
+        
         for (int i = 0; i < 4; i++)
         {
             track[track_bound].IP[i] = IPAddr[i];
+            printf("%d ",IPAddr[i]);
         }
+        printf("\n");
 
         if (flag == 1)
         {
@@ -699,17 +707,22 @@ int pcap_Analysis(char fileName[100])
             }
             src_ip[km]='\0';
             
+            
             lm = 0;
             fprintf(fp, "destination IP:");
             km = 0;
             for (int i = 0; i < 4; i++)
             {
                 fprintf(fp, "%d", (int)ip.destination[i]);
-                des = (int) ip.source[i];
+                des = (int) ip.destination[i];
+                int j = 0;
+                char rev[4];
                 while(des!=0){
-                    dest_ip[km++] = (des%10)+'0';
+                    rev[j++] = (des%10)+'0';
                     des/=10;
                 }
+                if(j==0) rev[j++]='0';
+                for(int kl=j-1;kl>=0;kl--) dest_ip[km++]=rev[kl];
                 arr2[lm++] = (int)ip.destination[i];
                 
                 if (i != 3){
@@ -720,6 +733,8 @@ int pcap_Analysis(char fileName[100])
                     fprintf(fp, "\n\n");
             }
             dest_ip[km]='\0';
+             
+            
             int i = 0;
             len = len * 4;
             pd = phead.ocLen - (ntohs(ip.length) + 14);
@@ -759,20 +774,27 @@ int pcap_Analysis(char fileName[100])
                 }
                 src = ntohs(T.srcport);
                 des = ntohs(T.destport);
+                
+              
 
-                if (ntohs(T.srcport == 443) || ntohs(T.destport) == 443)
+                 if ((src == 443) || (des == 443))
                 {
+                   ssl++;
                     color = Magenta;
                     strcpy(tm,"SSL");
                     fprintf(fp, "This is a SSL packet\n");
 
                 }
 
+                
                 else if (ntohs(T.srcport) == 80 || ntohs(T.destport) == 80)
                 {
+                    
+                    
                     color = Yellow;
                     strcpy(tm,"HTTP");
                     fprintf(fp, "This is a HTTP packet\n");
+                    http++;
                     http_session.prev_seq = ntohl(T.seqNum);
                     http_session.prev_ack = ntohl(T.ackNUm);
                     http_session.d_port = ntohs(T.destport);
@@ -784,6 +806,7 @@ int pcap_Analysis(char fileName[100])
                     }
                 }
 
+                
                 fprintf(fp, "SEQUENCE NUMBER : %" PRIu32, ntohl(T.seqNum));
                 fprintf(fp, "\n");
 
@@ -840,15 +863,20 @@ int pcap_Analysis(char fileName[100])
                         fi = flg[i];
                     }
 
-                    if (sy == 1 && ac == 1 && ur == 0 && fi == 0 && ps == 0 && rs == 0)
+                   
+                }
+                  if (sy == 1 && ac == 1 && ur == 0 && fi == 0 && ps == 0 && rs == 0)
                     {
+                       
                         change(arr, 2);
                     }
                     else if (sy == 1 && ac == 0 && ur == 0 && fi == 0 && ps == 0 && rs == 0)
                     {
+
                         change(arr2, 1);
                     }
-                }
+
+                   
                 fprintf(fp, "Window Size : %d\n", ntohs(T.tcp_win));
                 fprintf(fp, "Checksum : 0x%x\n", ntohs(T.tcp_checksum));
                 fprintf(fp, "Urgent Pointer : %d\n\n", ntohs(T.tcp_urgptr));
@@ -858,6 +886,8 @@ int pcap_Analysis(char fileName[100])
 
             else if (protocol == 17)
             {
+                color = Green;
+                strcpy(tm,"UDP");
                 udp++;
                 fprintf(fp, "--------UDP Header-------\n");
                 fread(&U, sizeof(struct udphdr), 1, pf);
@@ -919,7 +949,7 @@ int pcap_Analysis(char fileName[100])
             }
             print(color);
             printf("%-20d%-20s%-20s%-20s%-20d%-20d\n",it,src_ip,dest_ip,tm,src,des);
-          
+            refresh();
 
             if (ntohs(T.srcport) == 80 || ntohs(T.destport) == 80)
             {
@@ -940,14 +970,19 @@ int pcap_Analysis(char fileName[100])
 
         else
         {
-
+            //skipping
             for (int bb = 0; bb < phead.ocLen - 14; bb++)
                 c = fgetc(pf);
         }
         add_skip = 0;
+       
+        
     }
+    print(White);
+    printf("-----------------------------SUMMARY-----------------------------\n");
+    printf("TCP : %lld\nUDP : %lld\nICMP : %lld\nHTTP : %lld\nSSL: %lld\n\n", tcp, udp, icmp,http,ssl);
 
-    fprintf(ff, "TCP : %lld\nUDP : %lld\nICMP : %lld\n\n", tcp, udp, icmp);
+    fprintf(ff, "TCP : %lld\nUDP : %lld\nICMP : %lld\nHTTP : %lld\nSSL: %lld\n\n", tcp, udp, icmp,http,ssl);
     check_flood();
     fprintf(ff, "No.of IP addresses which probably has been flooded with SYN packets : %lld\n\n", spoof_bound + 1);
     if (spoof_bound >= 0)
