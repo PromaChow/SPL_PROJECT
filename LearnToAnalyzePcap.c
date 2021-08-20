@@ -255,6 +255,7 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                     
                         
                         r = strstr(ptr, "\r\n\r\n");
+
                         int i = 0;
                         if (r != NULL) i = r-ptr+4;
                             int l=0;
@@ -454,9 +455,7 @@ void change(int IPAddr[], int flag)
         for (int i = 0; i < 4; i++)
         {
             track[track_bound].IP[i] = IPAddr[i];
-            printf("%d ",IPAddr[i]);
         }
-        printf("\n");
 
         if (flag == 1)
         {
