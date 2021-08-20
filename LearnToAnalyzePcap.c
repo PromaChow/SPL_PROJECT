@@ -693,10 +693,14 @@ int pcap_Analysis(char fileName[100])
                 fprintf(fp, "%d", (int)ip.source[i]);
                 arr[lm++] = (int)ip.source[i];
                 src = (int) ip.source[i];
+                int j = 0;
+                char rev[4];
                 while(src!=0){
-                    src_ip[km++] = (src%10)+'0';
+                    rev[j++] = (src%10)+'0';
                     src/=10;
                 }
+                if(j==0) rev[j++]='0';
+                for(int kl=j-1;kl>=0;kl--) src_ip[km++]=rev[kl];
                 if (i != 3)
                     {
                         fprintf(fp, ".");
@@ -948,7 +952,7 @@ int pcap_Analysis(char fileName[100])
                     fprintf(fp, "protocol number: %d\n", protocol);
             }
             print(color);
-            printf("%-20d%-20s%-20s%-20s%-20d%-20d\n",it,src_ip,dest_ip,tm,src,des);
+            printf("%-20d%-20s%-20s%-20s%-20d%-20d\n",it+1,src_ip,dest_ip,tm,src,des);
             refresh();
 
             if (ntohs(T.srcport) == 80 || ntohs(T.destport) == 80)
