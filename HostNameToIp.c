@@ -8,6 +8,7 @@
 #include<linux/if_ether.h>
 #include<arpa/inet.h>
 #include<netdb.h>
+#include "colors.h"
 int convertHosttoIp(char  hostname[],char* ip,struct sockaddr_in *destAddr){
 
     struct hostent *host;
@@ -17,7 +18,9 @@ int convertHosttoIp(char  hostname[],char* ip,struct sockaddr_in *destAddr){
     host=gethostbyname(hostname);
     if(host == NULL)
     {
-        printf("Error retrieving IP from hostname");
+        print(Red);
+        printf("Error retrieving IP from hostname\n");
+        refresh();
         return 0;
     }
     address = (struct in_addr **) host->h_addr_list;
