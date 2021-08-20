@@ -151,19 +151,6 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
         if (r != NULL)
         {
             
-
-            if (strstr(ptr, "text/html") != NULL)
-            {
-                strcpy(type, "html");
-            }
-            else if (strstr(ptr, "text/css") != NULL)
-            {
-                strcpy(type, "css");
-            }
-            else if (strstr(ptr, "text/javascript") != NULL)
-            {
-                strcpy(type, "js");
-            }
             r = strstr(ptr, "Host:");
             if (r != NULL)
             {
@@ -184,7 +171,7 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                 ses_fp = fopen(html_ses[s_k].filename, "w+");
                 chmod(html_ses[s_k].filename, S_IRWXO);
                 if (ses_fp == NULL)
-                    printf("BRO U A STUPID FAILURE\n");
+                    printf("FILE NOT CREATED\n");
                 html_ses[s_k].s_port = http_session.s_port;
                 html_ses[s_k].d_port = http_session.d_port;
                 html_ses[s_k].prev_seq = http_session.prev_seq;
@@ -989,26 +976,29 @@ int pcap_Analysis(char fileName[100])
     fprintf(ff, "TCP : %lld\nUDP : %lld\nICMP : %lld\nHTTP : %lld\nSSL: %lld\n\n", tcp, udp, icmp,http,ssl);
     check_flood();
     fprintf(ff, "No.of IP addresses which probably has been flooded with SYN packets : %lld\n\n", spoof_bound + 1);
+    if(spoof_bound>=0){
+        print(Red);
+        printf("Warning!\n");
+    }
     if (spoof_bound >= 0)
     {
-
-        fprintf(ff, "IP ADDRESSES :");
+        
+        printf( "IP ADDRESSES that are in a risk of getting SYN-FLOOD ATTACKED :");
     }
-
+    
     for (int i = 0; i <= spoof_bound; i++)
     {
         for (int j = 0; j < 4; j++)
         {
             if (j != 3)
-                fprintf(ff, "%d.", track[i].IP[j]);
+                printf( "%d.", track[i].IP[j]);
             else
-                fprintf(ff, "%d", track[i].IP[j]);
+                printf( "%d", track[i].IP[j]);
         }
-        fprintf(ff, "(Number of received SYN packets is %ld && Number of sent SYN_ACKs is %ld)\n", track[i].syn, track[i].syn_ack);
+        printf( "(Number of received SYN packets is %ld && Number of sent SYN_ACKs is %ld)\n", track[i].syn, track[i].syn_ack);
     }
-    
-    printf("\n\nDONE!\n");
-    printf("Packet details saved in file log.txt\nHtml files from http payload are saved in folder https_htmls in the current directory\n");
+    refresh();
+    printf("\n\nPacket details saved in file log.txt\nHtml files from http payload are saved in folder https_htmls in the current directory\n");
 
     return 0;
 }
