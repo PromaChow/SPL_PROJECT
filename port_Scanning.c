@@ -1,19 +1,70 @@
-
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 #include <errno.h>
-#include <arpa/inet.h>
+#include <pthread.h>
 #include <netdb.h>
-#include<time.h>
-#define TCP tcphdr
-#include "regx.h"
+#include <arpa/inet.h>
 #include "HostNameToIp.h"
+#include "regx.h"
 #include "Headers.h"
 #include "colors.h"
 
+int start_sniffer();
 char state[100];
+char desta[16];
+char host_name[100];
+int port, open_port = 0, closed_port = 0, filtered_port = 0;
+
+int get_local_ip(char *buffer)
+{
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+
+	const char *kGoogleDnsIp = "8.8.8.8";
+	int dns_port = 53;
+
+	struct sockaddr_in serv;
+
+	memset(&serv, 0, sizeof(serv));
+	serv.sin_family = AF_INET;
+	serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
+	serv.sin_port = htons(dns_port);
+
+	int err = connect(sock, (const struct sockaddr *)&serv, sizeof(serv));
+
+	struct sockaddr_in name;
+	socklen_t namelen = sizeof(name);
+	err = getsockname(sock, (struct sockaddr *)&name, &namelen);
+
+	const char *p = inet_ntop(AF_INET, &name.sin_addr, buffer, 100);
+}
+
+unsigned short csum(unsigned short *ptr, int size)
+{
+	unsigned long int sum;
+	unsigned short oddbyte;
+	unsigned short int answer;
+
+	sum = 0;
+	while (size > 1)
+	{
+		sum += *ptr++;
+		size -= 2;
+	}
+	if (size == 1)
+	{
+		oddbyte = 0;
+		*((unsigned char *)&oddbyte) = *(unsigned char *)ptr;
+		sum += oddbyte;
+	}
+
+	sum = (sum >> 16) + (sum & 0x0000ffff);
+	sum = sum + (sum >> 16);
+	answer = (short)~sum;
+
+	return answer;
+}
 
 void service(int port)
 {
@@ -54,7 +105,6 @@ void service(int port)
 	else
 		strcpy(state, " ");
 }
-
 struct pseudo_header
 {
 	unsigned int source_address;
@@ -63,109 +113,49 @@ struct pseudo_header
 	unsigned char protocol;
 	unsigned short tcp_length;
 
-	struct TCP tcp;
+	struct tcphdr tcp;
 };
 
-struct sockaddr_c //sockaddr_in
-{
-	short s_family;		  //sin_family
-	unsigned int s_port;  //sin_port
-	unsigned long s_addr; //struct in_addr
-	char s_zero[8];		  //sin_zero
-};
-
-void swap(short int *a, short int *b)
-{
-	int temp = *a;
-	*a = *b;
-	*b = temp;
-}
-
-unsigned short csum(unsigned short *ptr, int size)
-{
-	unsigned long int sum;
-	unsigned short oddbyte;
-	unsigned short int answer;
-
-	sum = 0;
-	while (size > 1)
-	{
-		sum += *ptr++;
-		size -= 2;
-	}
-	if (size == 1)
-	{
-		oddbyte = 0;
-		*((unsigned char *)&oddbyte) = *(unsigned char *)ptr;
-		sum += oddbyte;
-	}
-
-	sum = (sum >> 16) + (sum & 0x0000ffff);
-	sum = sum + (sum >> 16);
-	answer = (short)~sum;
-
-	return answer;
-}
-
-int equal(char addr[], char arg[])
-{
-	int flag = 0, i;
-	for (i = 0;; i++)
-	{
-		if (addr[i] == '\0' || arg[i] == '\0')
-			break;
-		if (addr[i] != arg[i])
-		{
-			flag = 1;
-			break;
-		}
-	}
-	if (flag == 0 && addr[i] == '\0' && arg[i] == '\0')
-		return 1;
-	else
-		return 0;
-}
+struct in_addr dest_ip;
 
 int port_scan(char argv[], char ch, int p1, int p2)
 {
 	int s = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
-	if (s == -1)
+	if (s < 0)
 	{
-		perror("Failed to create socket");
-		exit(1);
+		printf("Error creating socket\n");
+		exit(0);
 	}
-	struct timeval timeout;      
-    timeout.tv_sec = 10;
-    timeout.tv_usec = 0;
-    
-    if (setsockopt (s, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,sizeof(timeout)) < 0)
-	herror("socketopt failed\n");
 
-	char datagram[4096], source_ip[16], *data, *pseudogram, desta[16];
-	memset(datagram, 0, 4096);
-	short int port_max, port_min;
-	char host_name[100], ipAddress[16];
+	char datagram[4096];
 
 	struct iphdr *iph = (struct iphdr *)datagram;
+
 	struct tcphdr *tcph = (struct tcphdr *)(datagram + sizeof(struct iphdr));
-	//struct sockaddr_c sin, source, dest;
-	struct sockaddr_in destAddr,sin, source, dest;
+
+	struct sockaddr_in dest;
 	struct pseudo_header psh;
-	struct in_addr dest_ip;
 
-	data = datagram + sizeof(struct iphdr) + sizeof(struct TCP);
-	strcpy(data, "");
+	int min_port, max_port;
+	if (ch == 's')
+	{
+		max_port = min_port = p1;
+	}
+	else if (ch == 'r')
+	{
+		max_port = p2;
+		min_port = p1;
+	}
 
-	strcpy(source_ip, "192.168.133.104");
-
-	long long open_ports = 0, closed_ports = 0,filtered_ports=0;
+	struct sockaddr_in destAddr;
 
 	if (is_Host(argv))
 	{
 		int p = convertHosttoIp(argv, desta, &destAddr);
 		//printf("%s\n",desta);
 		dest_ip.s_addr = inet_addr(desta);
-		if(p==0) return 0;
+		if (p == 0)
+			return 0;
 
 		strcpy(host_name, argv);
 	}
@@ -173,27 +163,57 @@ int port_scan(char argv[], char ch, int p1, int p2)
 	else
 	{
 		strcpy(desta, argv);
+		dest_ip.s_addr = inet_addr(desta);
 		IPtoHostName(desta, host_name);
 	}
 
+	int source_port = 43591;
+	char source_ip[20];
+	get_local_ip(source_ip);
 
 
-	if (ch == 'r')
+	memset(datagram, 0, 4096);
+
+	iph->ihl = 5;
+	iph->version = 4;
+	iph->tos = 0;
+	iph->tot_len = sizeof(struct iphdr) + sizeof(struct tcphdr);
+	iph->id = htons(54321);
+	iph->frag_off = htons(16384);
+	iph->ttl = 64;
+	iph->protocol = IPPROTO_TCP;
+	iph->check = 0;
+	iph->saddr = inet_addr(source_ip);
+	iph->daddr = dest_ip.s_addr;
+
+	iph->check = csum((unsigned short *)datagram, iph->tot_len >> 1);
+
+	tcph->source = htons(source_port);
+	tcph->dest = htons(80);
+	tcph->seq = htonl(1105024978);
+	tcph->ack_seq = 0;
+	tcph->doff = sizeof(struct tcphdr) / 4;
+	tcph->fin = 0;
+	tcph->syn = 1;
+	tcph->rst = 0;
+	tcph->psh = 0;
+	tcph->ack = 0;
+	tcph->urg = 0;
+	tcph->window = htons(14600);
+	tcph->check = 0;
+	tcph->urg_ptr = 0;
+
+	int one = 1;
+	const int *val = &one;
+
+	if (setsockopt(s, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
 	{
-		port_max = p1;
-		port_min = p2;
-
-		if (port_min > port_max)
-		{
-			swap(&port_min, &port_max);
-		}
+		printf("Error setting IP_HDRINCL. Error number : %d . Error message : %s \n", errno, strerror(errno));
+		exit(0);
 	}
 
-	else if (ch == 's')
-	{
-		port_max = port_min = p1;
-	}
-
+	dest.sin_family = AF_INET;
+	dest.sin_addr.s_addr = dest_ip.s_addr;
 	char hs[] = "Host Name";
 	char ip[] = "IP Address";
 	char prt[] = "Port Number";
@@ -203,149 +223,127 @@ int port_scan(char argv[], char ch, int p1, int p2)
 	printf("\033[1m\033[3m\033[%dm\033[%dm", 30, Yellow + 10);
 	printf("%-20s%-20s%-20s%-20s%-20s\n\n", hs, ip, prt, st, srv);
 	refresh();
-
-	for (short int port = port_min; port <= port_max; port++)
+	for (port = min_port; port <= max_port; port++)
 	{
-
 		service(port);
-		sin.sin_family = AF_INET;
-		sin.sin_port = htons(port);
-		sin.sin_addr.s_addr = inet_addr(desta);
-
-		iph->ihl = 5;
-		iph->version = 4;
-		iph->tos = 0;
-		iph->tot_len = sizeof(struct iphdr) + sizeof(struct TCP) ;
-		iph->id = htonl(54321);
-		iph->frag_off = htons(16384);
-		iph->ttl = 64;
-		iph->protocol = IPPROTO_TCP;
-		iph->check = 0;
-		iph->saddr = inet_addr(source_ip);
-		iph->daddr = sin.sin_addr.s_addr;
-		iph->check = csum((unsigned short *)datagram, iph->tot_len);
-
-		tcph->source = htons(15111);
 		tcph->dest = htons(port);
-		tcph->seq = htonl(1105024978);
-		tcph->ack_seq = 0;
-		tcph->doff = sizeof(struct TCP) / 4;
-		tcph->fin = 0;
-		tcph->syn = 1;
-		tcph->rst = 0;
-		tcph->psh = 0;
-		tcph->ack = 0;
-		tcph->urg = 0;
-		tcph->window = htons(14600);
 		tcph->check = 0;
-		tcph->urg_ptr = 0;
 
 		psh.source_address = inet_addr(source_ip);
-		psh.dest_address = sin.sin_addr.s_addr;
+		psh.dest_address = dest.sin_addr.s_addr;
 		psh.placeholder = 0;
 		psh.protocol = IPPROTO_TCP;
-		psh.tcp_length = htons(sizeof(struct TCP));
-		psh.tcp = *tcph;
+		psh.tcp_length = htons(sizeof(struct tcphdr));
 
-		int psize = sizeof(struct pseudo_header) + strlen(data);
-		pseudogram = malloc(psize);
+		memcpy(&psh.tcp, tcph, sizeof(struct tcphdr));
 
-		memcpy(pseudogram, (char *)&psh, sizeof(struct pseudo_header));
+		tcph->check = csum((unsigned short *)&psh, sizeof(struct pseudo_header));
 
-		tcph->check = csum((unsigned short *)pseudogram, psize);
-
-		int one = 1;
-		const int *val = &one;
-		if (setsockopt(s, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
+		if (sendto(s, datagram, sizeof(struct iphdr) + sizeof(struct tcphdr), 0, (struct sockaddr *)&dest, sizeof(dest)) < 0)
 		{
-			perror("Error setting IP_HDRINCL");
+			printf("Error sending syn packet\n");
 			exit(0);
 		}
+		start_sniffer();
+	}
+	printf("\n\n---------Final Statistics--------\nOpen Ports = %d, Filtered Ports = %d, Closed Ports = %d\n", open_port, filtered_port, closed_port);
 
-		if (sendto(s, datagram, sizeof(struct iphdr)+sizeof(struct TCP), 0, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-			perror("sendto failed");
+	return 0;
+}
 
-		struct sockaddr saddr;
-		int saddr_len = sizeof(saddr);
-		int i = 0, flag = 1;
-		time_t startTime = time(NULL);
-		time_t endtime = startTime + 1;
-		while(i<10)
-		{
-			unsigned char *buffer = (unsigned char *)malloc(65536);
+int start_sniffer()
+{
+	int sock_raw;
 
-			memset(datagram, 0, 4096);
-			int rcv = recvfrom(s, buffer, 65536,0,&saddr, &saddr_len);
-			if (rcv < 0)
-			{ 
-				fflush(stdout);
-				
-				printf("Error receiving packet\n");
-				continue;
-			}
+	int saddr_size, data_size;
+	struct sockaddr saddr;
 
-			struct iphdr *ip = (struct iphdr *)(buffer);
+	unsigned char *buffer = (unsigned char *)malloc(65536);
 
-			memset(&source, 0, sizeof(source));
-			source.sin_addr.s_addr = ip->saddr;
+	fflush(stdout);
 
-			memset(&dest, 0, sizeof(dest));
-			dest.sin_addr.s_addr = ip->daddr;
+	sock_raw = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
 
-			int iphdrlen = ip->ihl * 4;
-			struct sockaddr_in IPsource;
-		  	IPsource.sin_addr.s_addr = ip->saddr;;
-			struct TCP *tcp = (struct TCP *)(buffer + iphdrlen);
-			printf("%d %s\n",(unsigned int)ip->protocol,inet_ntoa(IPsource.sin_addr));
-			
-			if ((unsigned int)ip->protocol == 6)
-			{
-				if (IPsource.sin_addr.s_addr == dest_ip.s_addr)
-				{
-					printf("hello\n");
-					flag = 0;
-					if(tcp->syn && tcp->ack){
-						char tm[] = "Open";
-						open_ports++;
-						print(Green);
-						printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
-						fflush(stdout);
-						refresh();
-						break;
-						
-					}
-					else if (tcp->rst)
-					{
-						
-						char tm[] = "Closed";
-						print(Red);
-						
-						printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
-						fflush(stdout);
-						refresh();
-						closed_ports++;
-						break;
-					}
-					
-					
-				}
-
-				
-			}
-
-			i++;
-		}
-
-		if (flag)
-		{
-			filtered_ports++;
-
-			char tm[] = "Filtered";
-			print(Blue);
-			printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
-			refresh();
-		}
+	if (sock_raw < 0)
+	{
+		printf("Socket Error\n");
+		fflush(stdout);
+		return 1;
 	}
 
-	printf("\n\n---------Final Statistics--------\nFiltered Ports = %lld, Closed Ports = %lld\n", open_ports, closed_ports);
+	saddr_size = sizeof saddr;
+	int i = 5;
+	int flag = 1;
+	while (i--)
+	{
+		//Receive a packet
+		data_size = recvfrom(sock_raw, buffer, 65536, 0, &saddr, &saddr_size);
+
+		if (data_size < 0)
+		{
+			printf("Recvfrom error , failed to get packets\n");
+			fflush(stdout);
+			return 1;
+		}
+
+		struct iphdr *iph = (struct iphdr *)buffer;
+		struct sockaddr_in source, dest;
+		unsigned short iphdrlen;
+
+		if (iph->protocol == 6)
+		{
+			struct iphdr *iph = (struct iphdr *)buffer;
+			iphdrlen = iph->ihl * 4;
+
+			struct tcphdr *tcph = (struct tcphdr *)(buffer + iphdrlen);
+
+			memset(&source, 0, sizeof(source));
+			source.sin_addr.s_addr = iph->saddr;
+
+			memset(&dest, 0, sizeof(dest));
+			dest.sin_addr.s_addr = iph->daddr;
+			struct sockaddr_in IPsource;
+			IPsource.sin_addr.s_addr = iph->saddr;
+			//	printf("%d %s %d %d %d\n",(unsigned int)iph->protocol,inet_ntoa(IPsource.sin_addr),tcph->ack,tcph->syn,tcph->rst);
+
+			if (source.sin_addr.s_addr == dest_ip.s_addr)
+			{
+				flag = 0;
+				//printf("Hello\n");
+				if (tcph->syn == 1 && tcph->ack == 1)
+				{
+					char tm[] = "Open";
+					open_port++;
+					print(Green); /*  */
+					printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
+					fflush(stdout);
+					refresh();
+					i = 0;
+				}
+				else if (tcph->ack && tcph->rst)
+				{
+					char tm[] = "Closed";
+					closed_port++;
+					print(Red);
+
+					printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
+					fflush(stdout);
+					refresh();
+					i = 0;
+				}
+			}
+		}
+	}
+	if (flag)
+	{
+		filtered_port++;
+
+		char tm[] = "Filtered";
+		print(Magenta);
+		printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
+		refresh();
+	}
+
+	fflush(stdout);
+	return 0;
 }
