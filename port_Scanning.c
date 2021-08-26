@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include<time.h>
 #define TCP tcphdr
 #include "regx.h"
 #include "HostNameToIp.h"
@@ -51,7 +52,7 @@ void service(int port)
 		strcpy(state, "POP3");
 
 	else
-		strcpy(state, "Unknown");
+		strcpy(state, " ");
 }
 
 struct pseudo_header
@@ -147,21 +148,23 @@ int port_scan(char argv[], char ch, int p1, int p2)
 
 	struct iphdr *iph = (struct iphdr *)datagram;
 	struct tcphdr *tcph = (struct tcphdr *)(datagram + sizeof(struct iphdr));
-	struct sockaddr_c sin, source, dest;
-	struct sockaddr_in destAddr;
+	//struct sockaddr_c sin, source, dest;
+	struct sockaddr_in destAddr,sin, source, dest;
 	struct pseudo_header psh;
+	struct in_addr dest_ip;
 
 	data = datagram + sizeof(struct iphdr) + sizeof(struct TCP);
 	strcpy(data, "");
 
-	strcpy(source_ip, "192.168.31.136");
+	strcpy(source_ip, "192.168.133.104");
 
-	long long open_ports = 0, closed_ports = 0;
+	long long open_ports = 0, closed_ports = 0,filtered_ports=0;
 
 	if (is_Host(argv))
 	{
 		int p = convertHosttoIp(argv, desta, &destAddr);
-		printf("%s\n",desta);
+		//printf("%s\n",desta);
+		dest_ip.s_addr = inet_addr(desta);
 		if(p==0) return 0;
 
 		strcpy(host_name, argv);
@@ -173,13 +176,9 @@ int port_scan(char argv[], char ch, int p1, int p2)
 		IPtoHostName(desta, host_name);
 	}
 
-	if (ch == '0')
-	{
-		port_min = 0;
-		port_max = 49151;
-	}
 
-	else if (ch == 'r')
+
+	if (ch == 'r')
 	{
 		port_max = p1;
 		port_min = p2;
@@ -209,24 +208,24 @@ int port_scan(char argv[], char ch, int p1, int p2)
 	{
 
 		service(port);
-		sin.s_family = AF_INET;
-		sin.s_port = htons(port);
-		sin.s_addr = inet_addr(desta);
+		sin.sin_family = AF_INET;
+		sin.sin_port = htons(port);
+		sin.sin_addr.s_addr = inet_addr(desta);
 
 		iph->ihl = 5;
 		iph->version = 4;
 		iph->tos = 0;
-		iph->tot_len = sizeof(struct iphdr) + sizeof(struct TCP) + strlen(data);
+		iph->tot_len = sizeof(struct iphdr) + sizeof(struct TCP) ;
 		iph->id = htonl(54321);
-		iph->frag_off = 0;
-		iph->ttl = 255;
+		iph->frag_off = htons(16384);
+		iph->ttl = 64;
 		iph->protocol = IPPROTO_TCP;
 		iph->check = 0;
 		iph->saddr = inet_addr(source_ip);
-		iph->daddr = sin.s_addr;
+		iph->daddr = sin.sin_addr.s_addr;
 		iph->check = csum((unsigned short *)datagram, iph->tot_len);
 
-		tcph->source = htons(977);
+		tcph->source = htons(15111);
 		tcph->dest = htons(port);
 		tcph->seq = htonl(1105024978);
 		tcph->ack_seq = 0;
@@ -242,10 +241,10 @@ int port_scan(char argv[], char ch, int p1, int p2)
 		tcph->urg_ptr = 0;
 
 		psh.source_address = inet_addr(source_ip);
-		psh.dest_address = sin.s_addr;
+		psh.dest_address = sin.sin_addr.s_addr;
 		psh.placeholder = 0;
 		psh.protocol = IPPROTO_TCP;
-		psh.tcp_length = htons(sizeof(struct TCP) + strlen(data));
+		psh.tcp_length = htons(sizeof(struct TCP));
 		psh.tcp = *tcph;
 
 		int psize = sizeof(struct pseudo_header) + strlen(data);
@@ -263,55 +262,72 @@ int port_scan(char argv[], char ch, int p1, int p2)
 			exit(0);
 		}
 
-		if (sendto(s, datagram, iph->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+		if (sendto(s, datagram, sizeof(struct iphdr)+sizeof(struct TCP), 0, (struct sockaddr *)&sin, sizeof(sin)) < 0)
 			perror("sendto failed");
 
 		struct sockaddr saddr;
 		int saddr_len = sizeof(saddr);
 		int i = 0, flag = 1;
-
-		while (i < 5)
+		time_t startTime = time(NULL);
+		time_t endtime = startTime + 1;
+		while(i<10)
 		{
+			unsigned char *buffer = (unsigned char *)malloc(65536);
 
 			memset(datagram, 0, 4096);
-			int rcv = recv(s, datagram, 4096, 0);
+			int rcv = recvfrom(s, buffer, 65536,0,&saddr, &saddr_len);
 			if (rcv < 0)
-			{
-				//printf("error in reading recv function\n");
+			{ 
 				fflush(stdout);
+				
+				printf("Error receiving packet\n");
+				continue;
 			}
 
-			struct iphdr *ip = (struct iphdr *)(datagram);
+			struct iphdr *ip = (struct iphdr *)(buffer);
 
 			memset(&source, 0, sizeof(source));
-			source.s_addr = ip->saddr;
+			source.sin_addr.s_addr = ip->saddr;
 
 			memset(&dest, 0, sizeof(dest));
-			dest.s_addr = ip->daddr;
+			dest.sin_addr.s_addr = ip->daddr;
 
 			int iphdrlen = ip->ihl * 4;
-
-			struct TCP *tcp = (struct TCP *)(datagram + iphdrlen);
-
-			struct in_addr temp;
-			temp.s_addr = source.s_addr;
+			struct sockaddr_in IPsource;
+		  	IPsource.sin_addr.s_addr = ip->saddr;;
+			struct TCP *tcp = (struct TCP *)(buffer + iphdrlen);
+			printf("%d %s\n",(unsigned int)ip->protocol,inet_ntoa(IPsource.sin_addr));
+			
 			if ((unsigned int)ip->protocol == 6)
 			{
-				if (equal(inet_ntoa(temp), desta))
+				if (IPsource.sin_addr.s_addr == dest_ip.s_addr)
 				{
+					printf("hello\n");
 					flag = 0;
-
-					if (tcp->rst)
+					if(tcp->syn && tcp->ack){
+						char tm[] = "Open";
+						open_ports++;
+						print(Green);
+						printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
+						fflush(stdout);
+						refresh();
+						break;
+						
+					}
+					else if (tcp->rst)
 					{
 						
 						char tm[] = "Closed";
-						print(Black);
+						print(Red);
 						
-						printf("%-20s%-20s%-20hd%-20s%-20s\n", host_name, desta, port, tm, state);
+						printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
+						fflush(stdout);
 						refresh();
 						closed_ports++;
+						break;
 					}
-					break;
+					
+					
 				}
 
 				
@@ -322,10 +338,10 @@ int port_scan(char argv[], char ch, int p1, int p2)
 
 		if (flag)
 		{
-			open_ports++;
+			filtered_ports++;
 
 			char tm[] = "Filtered";
-			print(Green);
+			print(Blue);
 			printf("%-20s%-20s%-20hd%-20s%-20s\n\n", host_name, desta, port, tm, state);
 			refresh();
 		}
