@@ -5,7 +5,6 @@
 #include <sys/stat.h>
 #include "Headers.h"
 #include "colors.h"
-#include <graphics.h>
 #define MX 100000
 FILE *pf, *fp;
 FILE *ses_fp;
