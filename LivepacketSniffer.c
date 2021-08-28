@@ -3,7 +3,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
 #include "Headers.h"
@@ -13,7 +12,6 @@
 
 FILE *pf, *part, *fp;
 int c = 0, httpN = 0, tcpN = 0, udpN = 0, sslN = 0, icmpN = 0;
-char FileName[1000];
 int keepRunning = 1;
 int packetNo = 0;
 char ssl_inf[500];
@@ -82,12 +80,38 @@ int isHTTP(unsigned char *pay, int size)
         fill_info(6, pay);
         return 5;
     }
+
+    if (c == 'C' && c1 == 'O' && c2 == 'N')
+    {
+        fill_info(7, pay);
+        return 6;
+    }
+
+    if (c == 'O' && c1 == 'P' && c2 == 'T')
+    {
+        fill_info(7, pay);
+        return 7;
+    }
+
+    if (c == 'T' && c1 == 'R' && c2 == 'A')
+    {
+        fill_info(5, pay);
+        return 8;
+    }
+
+    if (c == 'P' && c1 == 'A' && c2 == 'T')
+    {
+        fill_info(5, pay);
+        return 9;
+    }
     return 0;
 }
 
 void printPayload(unsigned char *pay, int len)
 {
 
+    if (len > 0)
+        fprintf(pf, "\n-------THE PAYLOAD--------\n");
     for (int i = 0; i < len; i++)
     {
 
@@ -277,12 +301,10 @@ void processPackets(unsigned char *buffer, int length)
             httpN++;
 
             color = Blue;
-            snprintf(FileName, 1000, "file%d.html", c++);
-            fprintf(pf, "\n\n\n");
             fl = 1;
             print(color);
             strcpy(tm, "HTTP");
-            printf("%-20s", inet_ntoa(IPsource.sin_addr));
+            printf("%-20d%-20s", packetNo, inet_ntoa(IPsource.sin_addr));
             printf("%-20s%-20s%-20d%-20d %s\n\n", inet_ntoa(IPdest.sin_addr), tm, ntohs(tcp->source), ntohs(tcp->dest), st);
             fl = 1;
         }
@@ -294,7 +316,7 @@ void processPackets(unsigned char *buffer, int length)
             sslN++;
             print(color);
             char temp[] = "Length : ";
-            printf("%-20s", inet_ntoa(IPsource.sin_addr));
+            printf("%-20d%-20s", packetNo, inet_ntoa(IPsource.sin_addr));
             printf("%-20s%-20s%-20d%-20d%-20s\n\n", inet_ntoa(IPdest.sin_addr), vers, ntohs(tcp->source), ntohs(tcp->dest), ssl_inf);
             vers[0] = '\0';
             refresh();
@@ -305,11 +327,11 @@ void processPackets(unsigned char *buffer, int length)
         {
             print(color);
             char temp[] = "SYN :";
-            printf("%-20s", inet_ntoa(IPsource.sin_addr));
+            printf("%-20d%-20s", packetNo, inet_ntoa(IPsource.sin_addr));
             printf("%-20s%-20s%-20d%-20d%s %d ACK : %d\n\n", inet_ntoa(IPdest.sin_addr), tm, ntohs(tcp->source), ntohs(tcp->dest), temp, tcp->syn, tcp->ack);
             refresh();
         }
-        fprintf(pf, "\n-------THE PAYLOAD--------\n");
+
         printPayload(buffer + iphdrlen + tcphdrlen, payload_len);
         fprintf(pf, "\n\n\n");
     }
@@ -327,7 +349,6 @@ void processPackets(unsigned char *buffer, int length)
         fprintf(pf, "Destination Port : %d\n", ntohs(udp->dest));
         fprintf(pf, "Length : %d\n", ntohs(udp->len));
         fprintf(pf, "Checksum : %d\n", ntohs(udp->check));
-        fprintf(pf, "\n-------THE PAYLOAD--------\n");
 
         printPayload(buffer + iphdrlen + ntohs(udp->len), payload_len);
         fprintf(pf, "\n\n\n");
@@ -353,6 +374,7 @@ int Livepktcap()
     if (sockfd < 0)
     {
         printf("Failed to create socket\n");
+        return 0;
     }
     printf("\033[5m\033[1m\033[3m\033[%dm", Green);
     printf("Starting....\n\n\n");
@@ -362,6 +384,12 @@ int Livepktcap()
     signal(SIGINT, intHandler);
     unsigned char *buffer = (unsigned char *)malloc(65536);
     int p = 30;
+
+    char tmp[] = "Packet No";
+    printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
+    printf("%-20s", tmp);
+    refresh();
+
     char tm[] = "IP Source Address";
     printf("\033[1m\033[3m\033[%dm\033[%dm", p, White + 10);
     printf("%-20s", tm);
