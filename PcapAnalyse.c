@@ -55,7 +55,6 @@ struct http_ses
     u_int32_t first_seqNum;
     u_int32_t prev_seq;
     u_int32_t prev_ack;
-    u_int32_t c;
 
 } html_ses[1000];
 int s_k = 0;
@@ -145,7 +144,6 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
 
     if (http == 1)
     {
-        // printf("hello\n");
         char type[10] = "html";
         r = strstr(ptr, "GET");
 
@@ -160,7 +158,6 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
 
                 int k = 0;
 
-                html_ses[s_k].c = 1;
 
                 snprintf(html_ses[s_k].filename, 1000, "http_htmls/html_pr_%d_.%s", (fit + 1), type);
                 //  printf("%s %d\n",html_ses[s_k].filename,it);
@@ -243,7 +240,7 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                 {
                     ses_fp = fopen(html_ses[j].filename, "a+");
 
-                    //   printf(" write %s %d\n",html_ses[j].filename,it);
+                   
                     int pos = http_session.prev_seq - html_ses[j].first_seqNum;
 
                     fseek(ses_fp, pos, SEEK_SET);
@@ -255,33 +252,25 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                     int i = 0;
                     if (r != NULL)
                         i = r - ptr + 4;
-                    int l = 0;
-                    if (strcmp("http_htmls/index_5.html", html_ses[j].filename) == 0)
-                        l = 1;
 
                     if (((len - pd) - i) == 0 && psh == 1)
                         remove(html_ses[j].filename);
                     for (; i < (len - pd); i++)
                     {
-                        //if(l)fprintf(ses_fp, "%c", ptr[i]);
+                        
                         fprintf(ses_fp, "%c", ptr[i]);
                     }
 
                     if (psh == 1)
                     {
-                        // printf("%d\n",j);
-                        // for(int i=0;i<s_k;i++){
-                        //         printf("%d %d\n",html_ses[i].s_port,html_ses[i].d_port);
-                        //     }
-                        //printf("psh 1 %d\n",it);
+                       
                         for (int k = j; k < s_k - 1; k++)
                         {
                             html_ses[k].s_port = html_ses[k + 1].s_port;
                             html_ses[k].d_port = html_ses[k + 1].d_port;
                             html_ses[k].first_seqNum = html_ses[k + 1].first_seqNum;
                             html_ses[k].prev_seq = html_ses[k + 1].prev_seq;
-                            html_ses[k].c = html_ses[k + 1].c;
-                            html_ses[k].prev_ack = html_ses[k + 1].c;
+                            html_ses[k].prev_ack = html_ses[k + 1].prev_ack;
                             strcpy(html_ses[k].filename, html_ses[k + 1].filename);
                             for (int i = 0; i < 4; i++)
                             {
@@ -290,10 +279,6 @@ void http_pay(int len, int http, struct http_ses http_session, int pd, int conta
                             }
                         }
                         s_k--;
-                        for (int i = 0; i < s_k; i++)
-                        {
-                            //   printf("%d %d\n",html_ses[i].s_port,html_ses[i].d_port);
-                        }
                     }
                     fclose(ses_fp);
                 }
